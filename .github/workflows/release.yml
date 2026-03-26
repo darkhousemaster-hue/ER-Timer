@@ -1,0 +1,27 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'   # triggers on any tag like v2.0.3, v2.1.0 etc.
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build & publish release
+        run: npm run build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

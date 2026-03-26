@@ -33,6 +33,7 @@ const BASE_DIGIT_SIZE = 40.8
 const BASE_COLON_SIZE = 19.8
 
 function applyNumberSize(scale) {
+  currentNumberSize = scale  // remember for after pool rebuilds
   const ds = (BASE_DIGIT_SIZE * scale).toFixed(2)
   const cs = (BASE_COLON_SIZE * scale).toFixed(2)
   let style = document.getElementById('dynamic-size')
@@ -162,20 +163,22 @@ function renderAll() {
   renderColon()
 }
 
+let currentNumberSize = 1.0
+
 async function loadImageFolder(folderPath) {
   const files = await window.api.invoke('read-image-folder', folderPath)
   imageCache = {}
   files.forEach(f => {
     imageCache[f.name] = 'file:///' + f.path.replace(/\\/g, '/')
   })
-  // Pre-load all images into pool, wait for them to fully decode
   buildImgPool()
-  // Wait for all pool images to finish loading before first render
   const allImgs = Object.values(imgPool)
     .flatMap(pool => Object.values(pool))
   await Promise.all(allImgs.map(img =>
     img.complete ? Promise.resolve() : new Promise(r => { img.onload = r; img.onerror = r })
   ))
+  // Always re-apply numberSize after pool rebuild so all images are the right size
+  applyNumberSize(currentNumberSize)
   renderAll()
 }
 

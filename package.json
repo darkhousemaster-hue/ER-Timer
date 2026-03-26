@@ -5,7 +5,8 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win --x64"
+    "build": "electron-builder --win --x64",
+    "release": "npm version patch && git push --follow-tags"
   },
   "build": {
     "appId": "com.ertimer.app",
@@ -34,7 +35,8 @@
     "publish": {
       "provider": "github",
       "owner": "darkhousemaster-hue",
-      "repo": "ER-Timer"
+      "repo": "ER-Timer",
+      "releaseType": "release"
     }
   },
   "devDependencies": {

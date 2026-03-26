@@ -8,7 +8,10 @@ body {
 
 #bg {
   position: fixed; inset: 0; z-index: 0;
-  background-size: cover; background-position: center;
+  width: 100vw; height: 100vh;
+  background-size: 100% 100%;  /* stretch to exactly fill, no cropping */
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 #timer-display {
