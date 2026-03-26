@@ -204,6 +204,8 @@ ipcMain.handle('create-named-folder', (e, base, name) => {
   fs.mkdirSync(full, { recursive: true })
   return full
 })
+ipcMain.handle('get-app-version', () => app.getVersion())
+
 ipcMain.handle('get-number-styles-dir', () => {
   const dir = path.join(app.getPath('userData'), 'number-styles')
   fs.mkdirSync(dir, { recursive: true })

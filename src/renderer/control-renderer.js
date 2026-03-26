@@ -1444,4 +1444,8 @@ window.api.on('save-layout', data => {
 // ════════════════════════════════════════════════════════
 // BOOT
 // ════════════════════════════════════════════════════════
+window.api.getVersion().then(v => {
+  const el = document.getElementById('lbl-version')
+  if (el) el.textContent = 'ER Timer v' + v
+})
 boot()

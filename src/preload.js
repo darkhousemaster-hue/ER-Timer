@@ -30,5 +30,6 @@ contextBridge.exposeInMainWorld('api', {
     if (allowed.includes(channel))
       ipcRenderer.on(channel, (event, data) => cb(data))
   },
-  off: channel => ipcRenderer.removeAllListeners(channel)
+  off: channel => ipcRenderer.removeAllListeners(channel),
+  getVersion: () => ipcRenderer.invoke('get-app-version')
 })
