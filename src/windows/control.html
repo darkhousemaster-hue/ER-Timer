@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ER Timer — Control</title>
+  <link rel="stylesheet" href="../styles/control.css">
+</head>
+<body>
+
+<!-- ══ SHARED TIMER ════════════════════════════════════════════ -->
+<section id="timer-section">
+  <div id="digit-controls">
+    <div class="dc-col">
+      <button class="dc-btn" data-d="0" data-dir="1">＋</button>
+      <div class="dc-digit" id="disp0">6</div>
+      <button class="dc-btn" data-d="0" data-dir="-1">－</button>
+    </div>
+    <div class="dc-col">
+      <button class="dc-btn" data-d="1" data-dir="1">＋</button>
+      <div class="dc-digit" id="disp1">0</div>
+      <button class="dc-btn" data-d="1" data-dir="-1">－</button>
+    </div>
+    <div class="dc-sep">:</div>
+    <div class="dc-col">
+      <button class="dc-btn" data-d="2" data-dir="1">＋</button>
+      <div class="dc-digit" id="disp2">0</div>
+      <button class="dc-btn" data-d="2" data-dir="-1">－</button>
+    </div>
+    <div class="dc-col">
+      <button class="dc-btn" data-d="3" data-dir="1">＋</button>
+      <div class="dc-digit" id="disp3">0</div>
+      <button class="dc-btn" data-d="3" data-dir="-1">－</button>
+    </div>
+  </div>
+  <div id="timer-buttons">
+    <button id="btn-start">Start</button>
+    <button id="btn-reset">Reset</button>
+    <button id="btn-pause">Pause</button>
+  </div>
+</section>
+
+<!-- ══ ROOM COLUMNS ════════════════════════════════════════════ -->
+<div id="rooms-container" class="one-room">
+
+  <!-- Room 1 -->
+  <div class="room-col" id="room-col-0">
+    <div class="room-label-row"><span class="room-label" id="room-name-0">Room 1</span><input type="text" id="room-name-input-0" class="room-name-input manager-only" value="Room 1" placeholder="Room name" style="display:none"><button id="btn-fs-0" class="btn-fullscreen" title="Fullscreen">⛶</button></div>
+
+    <div class="hint-sound-controls">
+      <label class="toggle-row" style="font-size:11px;gap:5px;">
+        <input type="checkbox" class="chk-hint-sound-on" data-room="0" checked>
+        <span>Hint sound</span>
+      </label>
+      <button class="btn-test-hint-sound" data-room="0" style="padding:4px 10px;border:1px solid #ddd;border-radius:6px;background:#fff;font-size:11px;cursor:pointer;font-family:inherit;">▶ Test</button>
+    </div>
+    <div class="hint-text-area">
+      <label class="sub-label">Text hint</label>
+      <div class="text-hint-row">
+        <input type="text" class="hint-input" data-room="0" placeholder="Type a hint…">
+        <button class="btn-hint-send" data-room="0">Send</button>
+        <button class="btn-hint-del"  data-room="0">Delete</button>
+      </div>
+    </div>
+
+    <div class="hint-pic-area">
+      <div class="pic-header">
+        <span class="sub-label" style="margin:0">Picture hints</span>
+        <button class="btn-remove-hint" data-room="0">Remove picture</button>
+        <button class="btn-remove-all" data-room="0">Remove all</button>
+        <button class="btn-add-phase manager-only" data-room="0">+ Phase</button>
+      </div>
+      <div class="phases-container" id="phases-0"></div>
+    </div>
+  </div>
+
+  <!-- Room 2 -->
+  <div class="room-col" id="room-col-1">
+    <div class="room-label-row"><span class="room-label" id="room-name-1">Room 2</span><input type="text" id="room-name-input-1" class="room-name-input manager-only" value="Room 2" placeholder="Room name" style="display:none"><button id="btn-fs-1" class="btn-fullscreen" title="Fullscreen">⛶</button></div>
+
+    <div class="hint-sound-controls">
+      <label class="toggle-row" style="font-size:11px;gap:5px;">
+        <input type="checkbox" class="chk-hint-sound-on" data-room="1" checked>
+        <span>Hint sound</span>
+      </label>
+      <button class="btn-test-hint-sound" data-room="1" style="padding:4px 10px;border:1px solid #ddd;border-radius:6px;background:#fff;font-size:11px;cursor:pointer;font-family:inherit;">▶ Test</button>
+    </div>
+    <div class="hint-text-area">
+      <label class="sub-label">Text hint</label>
+      <div class="text-hint-row">
+        <input type="text" class="hint-input" data-room="1" placeholder="Type a hint…">
+        <button class="btn-hint-send" data-room="1">Send</button>
+        <button class="btn-hint-del"  data-room="1">Delete</button>
+      </div>
+    </div>
+
+    <div class="hint-pic-area">
+      <div class="pic-header">
+        <span class="sub-label" style="margin:0">Picture hints</span>
+        <button class="btn-remove-hint" data-room="1">Remove picture</button>
+        <button class="btn-remove-all" data-room="1">Remove all</button>
+        <button class="btn-add-phase manager-only" data-room="1">+ Phase</button>
+      </div>
+      <div class="phases-container" id="phases-1"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══ SETTINGS ════════════════════════════════════════════════ -->
+<section id="settings-section">
+  <div id="settings-header">
+    <h2 class="section-title">Settings</h2>
+    <div style="display:flex;gap:12px;align-items:center">
+      <button id="btn-manager-toggle" style="padding:5px 12px;border:1px solid #1a1a2e;border-radius:6px;background:#1a1a2e;color:#fff;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600;">🔒 Manager Mode</button>
+      <label class="toggle-row">
+        <span>2 Rooms</span>
+        <input type="checkbox" id="chk-two-rooms">
+      </label>
+      <button id="btn-layout" class="manager-only" style="padding:4px 10px;border:1px solid #1a1a2e;border-radius:6px;background:#1a1a2e;color:#fff;font-size:12px;cursor:pointer;font-family:inherit;">Edit Layout</button>
+    </div>
+  </div>
+
+  <details id="styles-sounds" class="manager-only" style="display:none">
+    <summary>Styles &amp; Sounds</summary>
+    <div id="ss-content">
+
+      <div class="ss-row">
+        <label>Style Preset</label>
+        <select id="sel-preset"><option value="">— no preset —</option></select>
+        <button id="btn-create-preset">Create New</button>
+        <button id="btn-delete-preset">Delete</button>
+        <span id="lbl-active-preset" style="font-size:11px;color:#0F6E56;font-weight:600;margin-left:4px;"></span>
+      </div>
+
+      <div class="ss-row">
+        <label>Number Images</label>
+        <input type="checkbox" id="chk-num-images">
+        <span id="num-img-on" style="display:none;gap:6px;align-items:center;flex-wrap:wrap">
+          <select id="sel-num-folder"><option value="">— choose folder —</option></select>
+          <button id="btn-new-num-folder">Create New</button>
+          <button id="btn-open-num-folder">Open Folder</button>
+          <button id="btn-del-num-folder" style="padding:4px 8px;border:1px solid #c44;border-radius:6px;background:#fff;color:#c44;font-size:11px;cursor:pointer;font-family:inherit;">Delete</button>
+        </span>
+        <span id="num-img-off">
+          <select id="sel-font">
+            <option>Courier New</option>
+            <option>Arial</option>
+            <option>Georgia</option>
+            <option>Impact</option>
+            <option>monospace</option>
+          </select>
+        </span>
+      </div>
+
+      <div class="ss-row">
+        <label>Number Size</label>
+        <button id="btn-numsize-down" style="width:28px;padding:3px 0;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;font-size:14px;">−</button>
+        <span id="lbl-numsize" style="font-size:13px;font-weight:600;font-family:'Courier New',monospace;min-width:36px;text-align:center;">1.0×</span>
+        <button id="btn-numsize-up" style="width:28px;padding:3px 0;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;font-size:14px;">＋</button>
+      </div>
+
+      <div class="ss-row">
+        <label>Background Image</label>
+        <button id="btn-bg-image">Add Image</button>
+        <button id="btn-bg-clear">Clear</button>
+      </div>
+
+      <div class="ss-row">
+        <label>Timer Color</label>
+        <input type="color" id="sel-timer-color" value="#ffffff"
+               style="width:44px;height:30px;padding:2px;border:1px solid #ddd;border-radius:6px;cursor:pointer;background:#fff;">
+        <span id="lbl-timer-color" style="font-size:11px;color:#888;font-family:'Courier New',monospace;">#ffffff</span>
+      </div>
+
+      <div class="ss-row">
+        <label>Hint Sound</label>
+        <button id="btn-hint-sound">Upload</button>
+        <span id="lbl-hint-sound" class="file-label">No file</span>
+        <button id="btn-hint-sound-clear" style="display:none;padding:4px 8px;border:1px solid #ddd;border-radius:6px;background:#fff;font-size:11px;cursor:pointer;color:#c44;">✕</button>
+      </div>
+
+      <div class="ss-row">
+        <label>Game Over Sound</label>
+        <button id="btn-gameover-sound">Upload</button>
+        <span id="lbl-gameover-sound" class="file-label">No file</span>
+        <button id="btn-gameover-sound-clear" style="display:none;padding:4px 8px;border:1px solid #ddd;border-radius:6px;background:#fff;font-size:11px;cursor:pointer;color:#c44;">✕</button>
+      </div>
+
+      <div class="ss-row">
+        <label>Countdown Sound</label>
+        <button id="btn-countdown-sound">Upload</button>
+        <span id="lbl-countdown-sound" class="file-label">No file</span>
+        <button id="btn-countdown-sound-clear" style="display:none;padding:4px 8px;border:1px solid #ddd;border-radius:6px;background:#fff;font-size:11px;cursor:pointer;color:#c44;">✕</button>
+      </div>
+
+      <div class="ss-row">
+        <label>Countdown trigger</label>
+        <input type="number" id="inp-countdown-trigger" min="0" max="3600" value="0"
+               style="width:64px;padding:4px 6px;border:1px solid #ddd;border-radius:6px;font-size:12px;font-family:inherit;">
+        <span style="font-size:11px;color:#888">seconds remaining (0 = off)</span>
+      </div>
+
+      <div class="ss-row">
+        <label>Room 1 — Audio</label>
+        <div id="audio-device-list-0" class="device-list"></div>
+      </div>
+      <div class="ss-row" id="row-room2-audio" style="display:none">
+        <label>Room 2 — Audio</label>
+        <div id="audio-device-list-1" class="device-list"></div>
+      </div>
+      <div class="ss-row">
+        <label>Room 1 — Display</label>
+        <div id="display-device-list-0" class="device-list"></div>
+      </div>
+      <div class="ss-row" id="row-room2-display" style="display:none">
+        <label>Room 2 — Display</label>
+        <div id="display-device-list-1" class="device-list"></div>
+      </div>
+
+
+      <div class="ss-row">
+        <label>Default Reset Time</label>
+        <input type="text" id="reset-time-input" placeholder="MM:SS" maxlength="5"
+               style="width:70px;text-align:center;font-family:'Courier New',monospace;font-size:16px;font-weight:700;letter-spacing:2px;">
+        <button id="btn-reset-apply">Set</button>
+        <span id="lbl-reset-current" style="font-size:11px;color:#888"></span>
+      </div>
+
+    </div>
+  </details>
+</section>
+
+<script src="../renderer/control-renderer.js"></script>
+</body>
+</html>

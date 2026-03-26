@@ -1,0 +1,141 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  width: 100vw; height: 100vh;
+  overflow: hidden; background: #0a0a12; color: #fff;
+  font-family: 'Courier New', monospace;
+}
+
+#bg {
+  position: fixed; inset: 0; z-index: 0;
+  background-size: cover; background-position: center;
+}
+
+#timer-display {
+  position: fixed; inset: 0; z-index: 10;
+  pointer-events: none;
+}
+
+/* Each digit/colon absolutely positioned, centred on its left%/top% */
+.digit, .colon {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+.digit img, .colon img {
+  height: 40.8vmin; width: auto; object-fit: contain; display: block;
+}
+
+.digit { font-size: 31.8vmin; line-height: 1; }
+.colon { font-size: 15.6vmin; line-height: 1; }
+.colon img { height: 19.8vmin; }
+
+/* Default positions — overridden by saved layout */
+#d0      { left: 41%;  top: 50%; }
+#d1      { left: 45.5%;top: 50%; }
+#colon-el{ left: 50%;  top: 50%; }
+#d2      { left: 54.5%;top: 50%; }
+#d3      { left: 59%;  top: 50%; }
+
+.digit.error { display: none; }
+
+/* ── Layout mode ─────────────────────────────────────── */
+/* When layout mode is active, elements get drag handles  */
+body.layout-mode .digit,
+body.layout-mode .colon {
+  pointer-events: all;
+  cursor: grab;
+  outline: 2px dashed rgba(255,255,255,0.6);
+  outline-offset: 6px;
+  border-radius: 4px;
+}
+body.layout-mode .digit:active,
+body.layout-mode .colon:active { cursor: grabbing; }
+
+/* Selected highlight */
+body.layout-mode .digit.sel,
+body.layout-mode .colon.sel {
+  outline-color: #5DCAA5;
+  background: rgba(93,202,165,0.15);
+}
+
+/* Snap guide lines */
+#snap-guide {
+  display: none; position: fixed; left: 0; right: 0; height: 1px;
+  background: rgba(93,202,165,0.8); z-index: 400; pointer-events: none;
+  box-shadow: 0 0 4px rgba(93,202,165,0.6);
+}
+#snap-guide-v {
+  display: none; position: fixed; top: 0; bottom: 0; width: 1px;
+  left: 50%; background: rgba(93,202,165,0.8); z-index: 400; pointer-events: none;
+  box-shadow: 0 0 4px rgba(93,202,165,0.6);
+}
+
+/* Label above each draggable showing its name */
+body.layout-mode .digit::after,
+body.layout-mode .colon::after {
+  content: attr(data-label);
+  position: absolute;
+  top: -28px; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,0.75);
+  color: #fff; font-size: 13px; padding: 2px 8px;
+  border-radius: 4px; white-space: nowrap;
+  font-family: 'Segoe UI', sans-serif;
+  pointer-events: none;
+}
+
+/* Layout mode info bar at top */
+#layout-bar {
+  display: none;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  background: rgba(26,26,46,0.92);
+  padding: 10px 20px;
+  align-items: center; justify-content: space-between;
+  font-family: 'Segoe UI', sans-serif;
+}
+body.layout-mode #layout-bar { display: flex; }
+
+#layout-label { color: #fff; font-size: 14px; }
+#layout-done {
+  padding: 6px 16px; border: none; border-radius: 6px;
+  background: #0F6E56; color: #fff; font-size: 13px;
+  cursor: pointer; font-family: inherit;
+}
+#layout-done:hover { background: #0a5a44; }
+
+/* ── Hints ────────────────────────────────────────────── */
+#hint-text {
+  position: fixed; z-index: 30;
+  bottom: 8%; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,0.72); color: #fff;
+  font-size: 4.8vw; padding: 0.5em 1.4em; border-radius: 10px;
+  max-width: 80vw; width: max-content;
+  text-align: center; display: none;
+  border: 1px solid rgba(255,255,255,0.15);
+  word-wrap: break-word; overflow-wrap: break-word;
+  white-space: normal; hyphens: auto;
+}
+
+#hint-image {
+  position: fixed; z-index: 20;
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
+  display: none; background: rgba(0,0,0,0.5);
+  padding: 12px; border-radius: 12px;
+}
+#hint-img-el {
+  width: 90vw; height: 88vh;
+  object-fit: contain; border-radius: 6px;
+}
+
+#blank-overlay {
+  position: fixed; inset: 0; z-index: 99;
+  background: #000; display: none;
+}
+
+.timer-color-white  { color: #ffffff; }
+.timer-color-red    { color: #ff4444; }
+.timer-color-green  { color: #5DCAA5; }
+.timer-color-yellow { color: #f0c040; }

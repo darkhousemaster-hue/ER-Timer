@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ER Timer</title>
+  <link rel="stylesheet" href="../styles/timer.css">
+</head>
+<body>
+  <div id="bg"></div>
+
+  <!-- Each element is individually positioned and draggable in layout mode -->
+  <div id="timer-display">
+    <div class="digit" id="d0"></div>
+    <div class="digit" id="d1"></div>
+    <div class="colon" id="colon-el"></div>
+    <div class="digit" id="d2"></div>
+    <div class="digit" id="d3"></div>
+  </div>
+
+  <!-- Layout mode overlay — shown when manager mode is on -->
+  <div id="layout-bar">
+    <span id="layout-label">Drag to move  •  Shift+drag to snap height  •  Arrow keys to nudge  •  Shift/Ctrl+arrows for fine/coarse  •  Ctrl+Z/Y undo/redo</span>
+    <button id="btn-layout-undo" style="padding:5px 12px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;background:rgba(255,255,255,0.1);color:#fff;font-size:12px;cursor:pointer;">↩ Undo</button>
+    <button id="btn-layout-redo" style="padding:5px 12px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;background:rgba(255,255,255,0.1);color:#fff;font-size:12px;cursor:pointer;">↪ Redo</button>
+    <button id="btn-layout-centre" style="padding:5px 12px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;background:rgba(255,255,255,0.1);color:#fff;font-size:12px;cursor:pointer;">⊕ Centre</button>
+    <button id="layout-done">Done</button>
+  </div>
+
+  <div id="hint-text"></div>
+
+  <div id="hint-image">
+    <img id="hint-img-el" src="" alt="hint">
+  </div>
+
+  <div id="blank-overlay"></div>
+  <div id="snap-guide"></div>
+  <div id="snap-guide-v"></div>
+
+  <script src="../renderer/timer-renderer.js"></script>
+</body>
+</html>

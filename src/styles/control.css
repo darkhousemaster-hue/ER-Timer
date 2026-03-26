@@ -1,0 +1,257 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #f4f4f1; color: #1a1a1a;
+  height: 100vh; overflow-y: auto;
+  display: flex; flex-direction: column;
+}
+
+section { padding: 14px 16px; border-bottom: 1px solid #ddd; flex-shrink: 0; }
+.section-title {
+  font-size: 13px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em; color: #888;
+}
+.sub-label { font-size: 11px; color: #999; display: block; margin-bottom: 5px; }
+.room-label {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: #1a1a2e; margin-bottom: 10px;
+  padding-bottom: 6px; border-bottom: 2px solid #1a1a2e;
+}
+
+/* ── Shared timer ──────────────────────────────────────── */
+#digit-controls {
+  display: flex; align-items: center;
+  justify-content: center; gap: 8px; margin-bottom: 12px;
+}
+.dc-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.dc-btn {
+  width: 38px; height: 28px; border: 1px solid #ccc;
+  border-radius: 6px; background: #fff; cursor: pointer; font-size: 15px;
+}
+.dc-btn:hover { background: #e8e8e4; }
+.dc-btn:active { transform: scale(0.96); }
+.dc-digit {
+  font-size: 38px; font-weight: 700; width: 46px;
+  text-align: center; font-family: 'Courier New', monospace; color: #1a1a2e;
+}
+.dc-sep { font-size: 34px; font-weight: 700; color: #1a1a2e; }
+
+#timer-buttons { display: flex; gap: 8px; justify-content: center; }
+#timer-buttons button {
+  flex: 1; padding: 11px; border: none; border-radius: 8px;
+  font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+#timer-buttons button:active { transform: scale(0.97); }
+#btn-start  { background: #0F6E56; color: #fff; }
+#btn-reset  { background: #e8e8e4; color: #333; }
+#btn-pause  { background: #1a1a2e; color: #fff; }
+
+/* ── Room columns ──────────────────────────────────────── */
+#rooms-container {
+  display: flex; flex: 1; overflow-y: auto; min-height: 0;
+}
+#rooms-container.one-room  .room-col { flex: 1; }
+#rooms-container.two-rooms .room-col { flex: 1; min-width: 0; }
+#rooms-container.two-rooms #room-col-1 { border-left: 1px solid #ddd; }
+#rooms-container.one-room  #room-col-1 { display: none; }
+.room-col { padding: 12px 14px; display: flex; flex-direction: column; gap: 12px; }
+
+/* ── Text hints ────────────────────────────────────────── */
+.hint-text-area { display: flex; flex-direction: column; }
+.text-hint-row { display: flex; gap: 5px; }
+.hint-input {
+  flex: 1; padding: 7px 9px; border: 1px solid #ddd;
+  border-radius: 7px; font-size: 12px; font-family: inherit; outline: none;
+}
+.hint-input:focus { border-color: #0F6E56; }
+.btn-hint-send, .btn-hint-del {
+  padding: 7px 10px; border: 1px solid #ddd; border-radius: 7px;
+  background: #fff; font-size: 11px; cursor: pointer; font-family: inherit;
+}
+.btn-hint-send { background: #0F6E56; color: #fff; border-color: #0F6E56; }
+.btn-hint-send:hover { background: #0a5a44; }
+.btn-hint-del:hover  { background: #f0f0ec; }
+
+/* ── Picture hints header ──────────────────────────────── */
+.pic-header {
+  display: flex; align-items: center; gap: 6px;
+  flex-wrap: wrap; margin-bottom: 6px;
+}
+/* Push label to fill space so buttons sit on the right */
+.pic-header .sub-label { flex: 1; }
+
+/* Remove hint button */
+.btn-remove-hint {
+  padding: 5px 10px; border: 1px solid #ddd; border-radius: 7px;
+  background: #fff; font-size: 11px; cursor: pointer; font-family: inherit;
+  white-space: nowrap;
+}
+.btn-remove-hint:hover { background: #fce8e8; color: #c44; }
+
+.btn-add-phase {
+  padding: 5px 10px; border: 1px solid #1a1a2e; border-radius: 7px;
+  background: #1a1a2e; color: #fff; font-size: 11px;
+  cursor: pointer; font-family: inherit;
+}
+.btn-add-phase:hover { background: #2a2a42; }
+
+/* ── Phase / Riddle accordions ─────────────────────────── */
+.phase-item, .riddle-item {
+  border: 1px solid #ddd; border-radius: 7px; margin-bottom: 5px;
+  overflow: hidden;
+}
+.phase-header, .riddle-header {
+  display: flex; align-items: center; padding: 7px 9px;
+  cursor: pointer; gap: 7px;
+}
+.phase-header  { background: #eeecea; }
+.riddle-header { background: #f6f6f3; }
+.phase-header:hover  { background: #e4e2e0; }
+.riddle-header:hover { background: #eeecea; }
+.phase-toggle, .riddle-toggle {
+  font-size: 10px; color: #888; transition: transform 0.2s;
+}
+.phase-toggle.open, .riddle-toggle.open { transform: rotate(90deg); }
+.phase-name, .riddle-name { flex: 1; font-size: 12px; font-weight: 600; }
+.btn-delete-phase, .btn-delete-riddle {
+  font-size: 10px; padding: 2px 7px; border: 1px solid #ddd;
+  border-radius: 5px; background: #fff; cursor: pointer; color: #c44;
+  display: none;
+}
+.manager-mode .btn-delete-phase,
+.manager-mode .btn-delete-riddle { display: inline-block; }
+.phase-body, .riddle-body { padding: 7px; display: none; }
+.phase-body.open, .riddle-body.open { display: block; }
+
+/* ── Hint thumbnails ───────────────────────────────────── */
+.hint-thumbs { display: flex; flex-wrap: wrap; gap: 10px; padding: 6px 0; }
+
+/* Wrapper holds image + delete button together */
+.hint-thumb-wrap {
+  position: relative; display: inline-block;
+  width: 192px; height: 144px; flex-shrink: 0;
+}
+.hint-thumb {
+  width: 192px; height: 144px; object-fit: cover;
+  border-radius: 7px; cursor: pointer; display: block;
+  border: 2px solid transparent; transition: border-color 0.15s;
+}
+.hint-thumb:hover    { border-color: #0F6E56; }
+.hint-thumb.selected { border-color: #0F6E56; }
+
+/* Delete button — top-right corner, manager mode only */
+.hint-thumb-del {
+  position: absolute; top: 5px; right: 5px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(180,30,30,0.85); color: #fff;
+  border: none; cursor: pointer; font-size: 13px;
+  display: none; align-items: center; justify-content: center;
+  line-height: 1; font-weight: 700;
+}
+.manager-mode .hint-thumb-del { display: flex; }
+.hint-thumb-del:hover { background: rgba(200,10,10,1); }
+
+.drag-placeholder {
+  width: 192px; height: 144px; border-radius: 7px;
+  background: #ccc; border: 2px dashed #999; flex-shrink: 0;
+}
+
+/* ── Manager mode ──────────────────────────────────────── */
+.manager-only { display: none !important; }
+.manager-mode .manager-only { display: inline-block !important; }
+
+/* ── Settings ──────────────────────────────────────────── */
+#settings-section { flex-shrink: 0; }
+#settings-header {
+  display: flex; justify-content: space-between;
+  align-items: center; margin-bottom: 10px;
+}
+.toggle-row { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
+
+details > summary {
+  cursor: pointer; font-size: 13px; font-weight: 600;
+  padding: 7px 0; list-style: none; display: flex; align-items: center; gap: 6px;
+}
+details > summary::before { content: '▶'; font-size: 9px; color: #888; }
+details[open] > summary::before { content: '▼'; }
+
+.ss-row {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 7px; padding: 9px 0; border-bottom: 1px solid #eee;
+}
+.ss-row label { min-width: 120px; font-size: 12px; font-weight: 500; }
+.ss-row select, .ss-row input[type=text] {
+  padding: 4px 7px; border: 1px solid #ddd;
+  border-radius: 6px; font-size: 12px; font-family: inherit;
+}
+.ss-row button {
+  padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px;
+  background: #fff; font-size: 11px; cursor: pointer; font-family: inherit;
+}
+.ss-row button:hover { background: #f0f0ec; }
+.file-label { font-size: 11px; color: #888; }
+
+#audio-device-list { display: flex; flex-direction: column; gap: 4px; }
+.audio-device-item { display: flex; align-items: center; gap: 7px; font-size: 12px; }
+
+/* ── Room label row (label + fullscreen button) ──── */
+.room-label-row {
+  display: flex; align-items: center;
+  justify-content: space-between; margin-bottom: 10px;
+}
+.room-label-row .room-label { margin-bottom: 0; }
+.btn-fullscreen {
+  padding: 3px 8px; border: 1px solid #ccc; border-radius: 6px;
+  background: #fff; cursor: pointer; font-size: 14px;
+  line-height: 1; color: #1a1a2e;
+}
+.btn-fullscreen:hover { background: #1a1a2e; color: #fff; }
+
+/* ── Accordion headers — full row clickable ─────── */
+.phase-header, .riddle-header {
+  user-select: none;
+}
+
+/* ── Default reset time input ───────────────────────── */
+#reset-time-input {
+  border: 1px solid #ddd; border-radius: 6px;
+  padding: 4px 6px; outline: none; color: #1a1a2e;
+}
+#reset-time-input:focus { border-color: #0F6E56; }
+#btn-reset-apply {
+  padding: 4px 10px; border: 1px solid #0F6E56; border-radius: 6px;
+  background: #0F6E56; color: #fff; font-size: 11px;
+  cursor: pointer; font-family: inherit;
+}
+#btn-reset-apply:hover { background: #0a5a44; }
+
+/* ── Per-room device lists ───────────────────────────── */
+.device-list { display: flex; flex-direction: column; gap: 3px; }
+/* room 2 rows hidden by JS via inline style on boot */
+
+/* ── Remove all hints button ─────────────────────────── */
+.btn-remove-all {
+  padding: 5px 12px; border: none; border-radius: 7px;
+  background: #c0392b; color: #fff; font-size: 11px;
+  font-weight: 600; cursor: pointer; font-family: inherit;
+  letter-spacing: 0.03em; transition: background 0.15s;
+}
+.btn-remove-all:hover  { background: #a93226; }
+.btn-remove-all:active { transform: scale(0.97); }
+
+/* ── Room name input (manager mode) ─────────────────── */
+.room-name-input {
+  flex: 1; padding: 3px 7px; border: 1px solid #1a1a2e;
+  border-radius: 5px; font-size: 12px; font-weight: 700;
+  font-family: inherit; text-transform: uppercase;
+  letter-spacing: 0.1em; color: #1a1a2e; outline: none;
+}
+.room-name-input:focus { border-color: #0F6E56; }
+
+/* ── Hint sound controls ─────────────────────────────── */
+.hint-sound-controls {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 0 6px;
+  border-bottom: 1px solid #eee; margin-bottom: 6px;
+}

@@ -1,0 +1,64 @@
+{
+  "digits": [
+    "6",
+    "0",
+    "0",
+    "0"
+  ],
+  "resetDigits": [
+    "6",
+    "0",
+    "0",
+    "0"
+  ],
+  "timerRunning": false,
+  "twoRooms": false,
+  "managerMode": false,
+  "rooms": [
+    {
+      "currentTextHint": "",
+      "currentImageHint": "",
+      "phases": [],
+      "hintSoundOn": true
+    },
+    {
+      "currentTextHint": "",
+      "currentImageHint": "",
+      "phases": [],
+      "hintSoundOn": true
+    }
+  ],
+  "presets": [],
+  "activePresetIndex": null,
+  "numberFolders": [],
+  "managerPassword": "",
+  "roomNames": [
+    "Room 1",
+    "Room 2"
+  ],
+  "settings": {
+    "imageMode": false,
+    "activeNumFolder": "",
+    "fontFamily": "Courier New",
+    "timerColor": "#ffffff",
+    "bgImage": "",
+    "hintSound": "",
+    "gameoverSound": "",
+    "countdownSound": "",
+    "countdownTrigger": 0,
+    "audioDeviceIds": [
+      [],
+      []
+    ],
+    "displayIndex": [
+      0,
+      1
+    ],
+    "displayMirrors": [
+      [],
+      []
+    ],
+    "timerLayout": null,
+    "numberSize": 1.0
+  }
+}
