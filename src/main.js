@@ -83,26 +83,50 @@ app.whenReady().then(() => {
   timerWin1.on('closed', () => { timerWin1 = null })
   createControlWindow()
 
-  // Auto-updater
-  autoUpdater.checkForUpdates().catch(() => {})
+  // Auto-updater — only runs in a packaged build, not npm start
+  if (app.isPackaged) {
+    // Log to a file so you can debug if needed
+    const log = require('electron-log')
+    autoUpdater.logger = log
+    autoUpdater.logger.transports.file.level = 'info'
+    autoUpdater.autoDownload = false  // ask the user first
 
-  autoUpdater.on('update-available', () => {
-    dialog.showMessageBox(controlWin, {
-      type: 'info',
-      title: 'Update Available',
-      message: 'A new version of ER Timer is available. Download and install now?',
-      buttons: ['Yes', 'Later']
-    }).then(r => { if (r.response === 0) autoUpdater.downloadUpdate() })
-  })
+    autoUpdater.on('checking-for-update', () => {
+      controlWin?.webContents.send('updater-status', 'Checking for updates...')
+    })
+    autoUpdater.on('update-not-available', () => {
+      controlWin?.webContents.send('updater-status', 'Up to date')
+    })
+    autoUpdater.on('error', (err) => {
+      controlWin?.webContents.send('updater-status', 'Update check failed')
+      log.error('Updater error:', err)
+    })
+    autoUpdater.on('update-available', (info) => {
+      controlWin?.webContents.send('updater-status', '')
+      dialog.showMessageBox(controlWin, {
+        type: 'info',
+        title: 'Update Available',
+        message: `ER Timer v${info.version} is available. Download and install now?`,
+        buttons: ['Yes, Download', 'Later']
+      }).then(r => { if (r.response === 0) autoUpdater.downloadUpdate() })
+    })
+    autoUpdater.on('download-progress', (p) => {
+      const pct = Math.round(p.percent)
+      controlWin?.webContents.send('updater-status', `Downloading update... ${pct}%`)
+    })
+    autoUpdater.on('update-downloaded', () => {
+      controlWin?.webContents.send('updater-status', '')
+      dialog.showMessageBox(controlWin, {
+        type: 'info',
+        title: 'Update Ready',
+        message: 'Update downloaded. The app will restart to install it.',
+        buttons: ['Restart Now', 'Later']
+      }).then(r => { if (r.response === 0) autoUpdater.quitAndInstall() })
+    })
 
-  autoUpdater.on('update-downloaded', () => {
-    dialog.showMessageBox(controlWin, {
-      type: 'info',
-      title: 'Update Ready',
-      message: 'Update downloaded. The app will restart to install it.',
-      buttons: ['Restart Now', 'Later']
-    }).then(r => { if (r.response === 0) autoUpdater.quitAndInstall() })
-  })
+    // Check after a short delay so the UI is fully loaded first
+    setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 3000)
+  }
 })
 app.on('window-all-closed', () => app.quit())
 

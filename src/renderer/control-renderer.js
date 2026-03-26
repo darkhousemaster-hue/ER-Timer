@@ -1448,4 +1448,16 @@ window.api.getVersion().then(v => {
   const el = document.getElementById('lbl-version')
   if (el) el.textContent = 'ER Timer v' + v
 })
+
+// Show update status in the bottom bar
+window.api.on('updater-status', msg => {
+  const bar = document.getElementById('update-status')
+  if (!bar) return
+  if (msg) {
+    bar.textContent = '🔄 ' + msg
+    bar.style.display = 'block'
+  } else {
+    bar.style.display = 'none'
+  }
+})
 boot()

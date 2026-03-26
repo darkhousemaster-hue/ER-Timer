@@ -25,7 +25,7 @@ contextBridge.exposeInMainWorld('api', {
       'timer-tick', 'hint-text', 'hint-image', 'hint-clear',
       'apply-style', 'init-room', 'play-sound',
       'sync-styles-to-win2', 'set-layout-mode',
-      'save-layout', 'layout-mode-done'
+      'save-layout', 'layout-mode-done', 'updater-status'
     ]
     if (allowed.includes(channel))
       ipcRenderer.on(channel, (event, data) => cb(data))
