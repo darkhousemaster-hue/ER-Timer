@@ -1450,12 +1450,19 @@ window.api.getVersion().then(v => {
 })
 
 // Show update status in the bottom bar
+let updaterHideTimer = null
 window.api.on('updater-status', msg => {
   const bar = document.getElementById('update-status')
   if (!bar) return
+  clearTimeout(updaterHideTimer)
   if (msg) {
     bar.textContent = '🔄 ' + msg
     bar.style.display = 'block'
+    // Auto-hide non-critical messages after 3 seconds
+    const autoHide = ['Checking for updates...', 'Up to date', 'Update check failed']
+    if (autoHide.some(s => msg.includes(s))) {
+      updaterHideTimer = setTimeout(() => { bar.style.display = 'none' }, 3000)
+    }
   } else {
     bar.style.display = 'none'
   }
