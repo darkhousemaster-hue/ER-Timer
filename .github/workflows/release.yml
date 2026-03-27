@@ -3,7 +3,10 @@ name: Build & Release
 on:
   push:
     tags:
-      - 'v*'   # triggers on any tag like v2.0.3, v2.1.0 etc.
+      - 'v*'
+
+permissions:
+  contents: write   # required to create releases and upload assets
 
 jobs:
   release:
