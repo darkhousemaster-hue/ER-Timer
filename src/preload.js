@@ -5,9 +5,8 @@ contextBridge.exposeInMainWorld('api', {
     const allowed = [
       'timer-tick', 'hint-text', 'hint-image', 'hint-clear',
       'apply-style', 'set-room-count', 'toggle-fullscreen',
-      'audio-devices-selected', 'play-sound', 'set-window-display',
-      'save-layout', 'layout-mode-done', 'set-layout-mode',
-      'set-display-mirrors'
+      'play-sound', 'set-window-display', 'set-display-mirrors',
+      'save-layout', 'layout-mode-done', 'set-layout-mode'
     ]
     if (allowed.includes(channel)) ipcRenderer.send(channel, data)
   },
@@ -16,7 +15,8 @@ contextBridge.exposeInMainWorld('api', {
       'state-load', 'state-save', 'open-folder-dialog',
       'reveal-folder', 'read-image-folder', 'create-named-folder',
       'get-number-styles-dir', 'get-displays', 'get-user-data-path',
-      'check-folder-exists'
+      'check-folder-exists', 'get-app-version', 'get-window-bounds',
+      'rename-folder'
     ]
     if (allowed.includes(channel)) return ipcRenderer.invoke(channel, ...args)
   },

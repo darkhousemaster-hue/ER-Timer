@@ -1,6 +1,6 @@
 {
   "name": "er-timer",
-  "version": "2.0.6",
+  "version": "2.1.0",
   "description": "Escape Room dual-room timer",
   "main": "src/main.js",
   "scripts": {
@@ -23,13 +23,14 @@
       "icon": "assets/icons/icon.ico"
     },
     "nsis": {
-      "oneClick": false,
-      "createDesktopShortcut": true
+      "oneClick": true,
+      "createDesktopShortcut": true,
+      "allowToChangeInstallationDirectory": false,
+      "deleteAppDataOnUninstall": false
     },
     "files": [
       "src/**/*",
       "assets/**/*",
-      "data/**/*",
       "package.json"
     ],
     "publish": {

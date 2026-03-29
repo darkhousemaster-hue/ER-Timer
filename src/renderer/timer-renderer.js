@@ -4,6 +4,7 @@ let imageMode   = false
 let imageCache  = {}
 let timerColor  = 'white'
 let layoutMode  = false
+let currentNumberSize = 1.0
 
 const DEFAULT_POS = {
   d0:        { left: 41,   top: 50 },
@@ -163,7 +164,6 @@ function renderAll() {
   renderColon()
 }
 
-let currentNumberSize = 1.0
 
 async function loadImageFolder(folderPath) {
   const files = await window.api.invoke('read-image-folder', folderPath)
@@ -442,11 +442,20 @@ window.api.on('init-room', data => { myRoomIndex = data.roomIndex })
 
 window.api.on('timer-tick', data => { digits = data.digits; renderAll() })
 
+let hintTextTimeout = null
+let hintImageTimeout = null
+
 window.api.on('hint-text', data => {
   if (data.roomIndex !== myRoomIndex) return
+  clearTimeout(hintTextTimeout)
   if (data.text) {
     els.hintText.textContent   = data.text
     els.hintText.style.display = 'block'
+    // Auto-clear after 10 seconds
+    hintTextTimeout = setTimeout(() => {
+      els.hintText.style.display = 'none'
+      els.hintText.textContent   = ''
+    }, 10000)
   } else {
     els.hintText.style.display = 'none'
     els.hintText.textContent   = ''
@@ -455,9 +464,15 @@ window.api.on('hint-text', data => {
 
 window.api.on('hint-image', data => {
   if (data.roomIndex !== myRoomIndex) return
+  clearTimeout(hintImageTimeout)
   if (data.src) {
     els.hintImg.src             = data.src
     els.hintImage.style.display = 'block'
+    // Auto-clear after 10 seconds
+    hintImageTimeout = setTimeout(() => {
+      els.hintImage.style.display = 'none'
+      els.hintImg.src             = ''
+    }, 10000)
   } else {
     els.hintImage.style.display = 'none'
     els.hintImg.src             = ''
@@ -466,6 +481,7 @@ window.api.on('hint-image', data => {
 
 window.api.on('hint-clear', data => {
   if (data.roomIndex !== myRoomIndex) return
+  clearTimeout(hintImageTimeout)
   els.hintImage.style.display = 'none'
   els.hintImg.src             = ''
 })
@@ -479,7 +495,10 @@ window.api.on('apply-style', async data => {
   if (data.fontFamily) els.display.style.fontFamily = data.fontFamily
   if (data.imageMode !== undefined) {
     imageMode = data.imageMode
-    if (imageMode && data.numberFolder) await loadImageFolder(data.numberFolder)
+    if (imageMode && data.numberFolder) {
+      await loadImageFolder(data.numberFolder)
+      return  // numberFolder already handled, skip the check below
+    }
     else renderAll()
   }
   if (data.numberFolder && imageMode) await loadImageFolder(data.numberFolder)

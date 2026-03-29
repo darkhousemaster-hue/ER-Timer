@@ -19,14 +19,17 @@ function saveState(state) {
   fs.writeFileSync(DATA_PATH, JSON.stringify(state, null, 2))
 }
 
-function createTimerWindow(roomIndex, display) {
+function createTimerWindow(roomIndex, display, savedBounds, fullscreen) {
   const preload = path.join(__dirname, 'preload.js')
   const { x, y, width, height } = display.workArea
-  const win = new BrowserWindow({
+  const bounds = savedBounds || {
     width:  Math.floor(width  * 0.75),
     height: Math.floor(height * 0.85),
     x: x + Math.floor(width  * 0.12),
     y: y + Math.floor(height * 0.08),
+  }
+  const win = new BrowserWindow({
+    ...bounds,
     title: `ER Timer — Room ${roomIndex + 1}`,
     icon: path.join(__dirname, '..', 'assets', 'icons', 'icon.png'),
     backgroundColor: '#0a0a12',
@@ -34,6 +37,7 @@ function createTimerWindow(roomIndex, display) {
   })
   win.setMenuBarVisibility(false)
   win.setAutoHideMenuBar(true)
+  if (fullscreen) win.setFullScreen(true)
   win.loadFile(path.join(__dirname, 'windows', 'timer.html'))
   win.webContents.on('did-finish-load', () => {
     win.webContents.send('init-room', { roomIndex })
@@ -52,8 +56,11 @@ function createControlWindow() {
     title: 'ER Timer — Control',
     icon: path.join(__dirname, '..', 'assets', 'icons', 'icon.png'),
     backgroundColor: '#f4f4f1',
+    autoHideMenuBar: true,
     webPreferences: { nodeIntegration: false, contextIsolation: true, preload }
   })
+  // Hide the File/Edit/View/Window/Help menu bar completely
+  controlWin.setMenuBarVisibility(false)
   controlWin.loadFile(path.join(__dirname, 'windows', 'control.html'))
   controlWin.on('closed', () => {
     controlWin = null
@@ -62,11 +69,11 @@ function createControlWindow() {
   })
 }
 
-function openTimerWin2() {
+function openTimerWin2(savedBounds, fullscreen) {
   if (timerWin2 && !timerWin2.isDestroyed()) return
   const displays = screen.getAllDisplays()
   const display  = displays[1] || displays[0]
-  timerWin2 = createTimerWindow(1, display)
+  timerWin2 = createTimerWindow(1, display, savedBounds, fullscreen)
   timerWin2.on('closed', () => { timerWin2 = null })
   timerWin2.webContents.once('did-finish-load', () => {
     controlWin?.webContents.send('sync-styles-to-win2')
@@ -78,53 +85,48 @@ function closeTimerWin2() {
 }
 
 app.whenReady().then(() => {
+  const saved = loadState()
+  const wb = saved?.windowBounds || {}
   const displays = screen.getAllDisplays()
-  timerWin1 = createTimerWindow(0, displays[0])
+  timerWin1 = createTimerWindow(0, displays[0], wb.timer1, wb.timer1Fullscreen)
   timerWin1.on('closed', () => { timerWin1 = null })
+  if (saved?.twoRooms) {
+    openTimerWin2(wb.timer2, wb.timer2Fullscreen)
+  }
   createControlWindow()
 
-  // Auto-updater — only runs in a packaged build, not npm start
+  // Auto-updater
   if (app.isPackaged) {
-    // Log to a file so you can debug if needed
     const log = require('electron-log')
     autoUpdater.logger = log
     autoUpdater.logger.transports.file.level = 'info'
-    autoUpdater.autoDownload = false  // ask the user first
+    autoUpdater.autoDownload = false
+    autoUpdater.autoInstallOnAppQuit = true
 
-    autoUpdater.on('checking-for-update', () => {
-      controlWin?.webContents.send('updater-status', 'Checking for updates...')
-    })
-    autoUpdater.on('update-not-available', () => {
-      controlWin?.webContents.send('updater-status', 'Up to date')
-    })
-    autoUpdater.on('error', (err) => {
-      controlWin?.webContents.send('updater-status', 'Update check failed')
-      log.error('Updater error:', err)
-    })
-    autoUpdater.on('update-available', (info) => {
+    autoUpdater.on('checking-for-update', () =>
+      controlWin?.webContents.send('updater-status', 'Checking for updates...'))
+    autoUpdater.on('update-not-available', () =>
+      controlWin?.webContents.send('updater-status', 'Up to date'))
+    autoUpdater.on('error', () =>
+      controlWin?.webContents.send('updater-status', 'Update check failed'))
+    autoUpdater.on('update-available', info => {
       controlWin?.webContents.send('updater-status', '')
       dialog.showMessageBox(controlWin, {
-        type: 'info',
-        title: 'Update Available',
-        message: `ER Timer v${info.version} is available. Download and install now?`,
+        type: 'info', title: 'Update Available',
+        message: `ER Timer v${info.version} is available. Download now?`,
         buttons: ['Yes, Download', 'Later']
       }).then(r => { if (r.response === 0) autoUpdater.downloadUpdate() })
     })
-    autoUpdater.on('download-progress', (p) => {
-      const pct = Math.round(p.percent)
-      controlWin?.webContents.send('updater-status', `Downloading update... ${pct}%`)
-    })
+    autoUpdater.on('download-progress', p =>
+      controlWin?.webContents.send('updater-status', `Downloading... ${Math.round(p.percent)}%`))
     autoUpdater.on('update-downloaded', () => {
       controlWin?.webContents.send('updater-status', '')
       dialog.showMessageBox(controlWin, {
-        type: 'info',
-        title: 'Update Ready',
-        message: 'Update downloaded. The app will restart to install it.',
+        type: 'info', title: 'Update Ready',
+        message: 'Update downloaded. Restart now to install?',
         buttons: ['Restart Now', 'Later']
-      }).then(r => { if (r.response === 0) autoUpdater.quitAndInstall() })
+      }).then(r => { if (r.response === 0) autoUpdater.quitAndInstall(false, true) })
     })
-
-    // Check after a short delay so the UI is fully loaded first
     setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 3000)
   }
 })
@@ -134,24 +136,24 @@ function sendToTimer(roomIndex, channel, data) {
   const win = roomIndex === 0 ? timerWin1 : timerWin2
   if (win && !win.isDestroyed()) win.webContents.send(channel, data)
 }
+// Send to ALL timer windows (for timer-tick, apply-style)
+function sendToAllTimers(channel, data) {
+  timerWin1?.webContents.send(channel, data)
+  timerWin2?.webContents.send(channel, data)
+}
 
-ipcMain.on('timer-tick',  (e, data) => {
-  timerWin1?.webContents.send('timer-tick', data)
-  timerWin2?.webContents.send('timer-tick', data)
-})
+ipcMain.on('timer-tick',  (e, data) => sendToAllTimers('timer-tick', data))
 ipcMain.on('hint-text',  (e, data) => sendToTimer(data.roomIndex, 'hint-text',  data))
 ipcMain.on('play-sound', (e, data) => sendToTimer(data.roomIndex, 'play-sound', data))
 ipcMain.on('hint-image', (e, data) => sendToTimer(data.roomIndex, 'hint-image', data))
 ipcMain.on('hint-clear', (e, data) => sendToTimer(data.roomIndex, 'hint-clear', data))
+ipcMain.on('apply-style', (e, data) => sendToAllTimers('apply-style', data))
 
-ipcMain.on('apply-style', (e, data) => {
-  timerWin1?.webContents.send('apply-style', data)
-  timerWin2?.webContents.send('apply-style', data)
-})
-ipcMain.on('set-room-count', (e, { count }) => {
-  if (count === 2) openTimerWin2()
+ipcMain.on('set-room-count', (e, { count, savedBounds, fullscreen }) => {
+  if (count === 2) openTimerWin2(savedBounds, fullscreen)
   else closeTimerWin2()
 })
+
 ipcMain.on('toggle-fullscreen', (e, { roomIndex }) => {
   const win = roomIndex === 0 ? timerWin1 : timerWin2
   if (!win) return
@@ -160,53 +162,76 @@ ipcMain.on('toggle-fullscreen', (e, { roomIndex }) => {
   win.setMenuBarVisibility(false)
   win.setAutoHideMenuBar(true)
 })
-ipcMain.on('set-layout-mode', (e, data) => {
-  timerWin1?.webContents.send('set-layout-mode', data)
-  timerWin2?.webContents.send('set-layout-mode', data)
-})
-ipcMain.on('save-layout', (e, data) => {
-  controlWin?.webContents.send('save-layout', data)
-})
-ipcMain.on('layout-mode-done', (e, data) => {
-  controlWin?.webContents.send('layout-mode-done', data)
-})
+
+ipcMain.on('set-layout-mode', (e, data) => sendToAllTimers('set-layout-mode', data))
+ipcMain.on('save-layout', (e, data)     => controlWin?.webContents.send('save-layout', data))
+ipcMain.on('layout-mode-done', (e, data)=> controlWin?.webContents.send('layout-mode-done', data))
+
+// Move timer window to a display
 ipcMain.on('set-window-display', (e, { roomIndex, displayIndex }) => {
   const win = roomIndex === 0 ? timerWin1 : timerWin2
   if (!win || win.isDestroyed()) return
   const displays = screen.getAllDisplays()
   const display = displays[displayIndex] || displays[0]
   const { x, y, width, height } = display.workArea
-  win.setBounds({
-    x: x + Math.floor(width * 0.12),
-    y: y + Math.floor(height * 0.08),
-    width:  Math.floor(width  * 0.75),
-    height: Math.floor(height * 0.85)
-  })
+  win.setBounds({ x: x + Math.floor(width * 0.12), y: y + Math.floor(height * 0.08),
+    width: Math.floor(width * 0.75), height: Math.floor(height * 0.85) })
 })
+
+// Mirror to multiple displays — open extra mirror windows
+const mirrorWins = { 0: [], 1: [] }
+
 ipcMain.on('set-display-mirrors', (e, { roomIndex, displayIndices }) => {
-  const win = roomIndex === 0 ? timerWin1 : timerWin2
-  if (!win || win.isDestroyed() || !displayIndices.length) return
+  const sourceWin = roomIndex === 0 ? timerWin1 : timerWin2
+  // Close existing mirrors for this room
+  mirrorWins[roomIndex].forEach(w => { if (!w.isDestroyed()) w.close() })
+  mirrorWins[roomIndex] = []
+
   const displays = screen.getAllDisplays()
-  const display = displays[displayIndices[0]] || displays[0]
-  const { x, y, width, height } = display.workArea
-  win.setBounds({
-    x: x + Math.floor(width * 0.12),
-    y: y + Math.floor(height * 0.08),
-    width:  Math.floor(width  * 0.75),
-    height: Math.floor(height * 0.85)
+  displayIndices.forEach((di, i) => {
+    const display = displays[di] || displays[0]
+    const { x, y, width, height } = display.workArea
+    if (i === 0) {
+      // Move the source window to the first selected display
+      sourceWin?.setBounds({ x: x + Math.floor(width * 0.12), y: y + Math.floor(height * 0.08),
+        width: Math.floor(width * 0.75), height: Math.floor(height * 0.85) })
+    } else {
+      // Open additional mirror BrowserWindows for extra displays
+      const preload = path.join(__dirname, 'preload.js')
+      const mirrorWin = new BrowserWindow({
+        x: x, y: y, width, height,
+        title: `ER Timer — Room ${roomIndex + 1} (Mirror)`,
+        backgroundColor: '#0a0a12',
+        webPreferences: { nodeIntegration: false, contextIsolation: true, preload }
+      })
+      mirrorWin.setMenuBarVisibility(false)
+      mirrorWin.loadFile(path.join(__dirname, 'windows', 'timer.html'))
+      mirrorWin.webContents.on('did-finish-load', () => {
+        mirrorWin.webContents.send('init-room', { roomIndex })
+        controlWin?.webContents.send('sync-styles-to-win2')
+      })
+      mirrorWins[roomIndex].push(mirrorWin)
+    }
   })
 })
 
-ipcMain.handle('state-load',         ()      => loadState())
-ipcMain.handle('state-save',         (e, s)  => { saveState(s); return true })
-ipcMain.handle('get-user-data-path', ()      => app.getPath('userData'))
-ipcMain.handle('get-displays', () => {
-  return screen.getAllDisplays().map((d, i) => ({
-    index: i, id: d.id,
-    label: `Display ${i + 1} (${d.size.width}x${d.size.height})`,
-    bounds: d.bounds, workArea: d.workArea
-  }))
-})
+// Save window bounds so we can restore on next launch
+ipcMain.handle('get-window-bounds', () => ({
+  timer1: timerWin1 && !timerWin1.isDestroyed() ? timerWin1.getBounds() : null,
+  timer1Fullscreen: timerWin1?.isFullScreen() || false,
+  timer2: timerWin2 && !timerWin2.isDestroyed() ? timerWin2.getBounds() : null,
+  timer2Fullscreen: timerWin2?.isFullScreen() || false,
+}))
+
+ipcMain.handle('state-load',            ()      => loadState())
+ipcMain.handle('state-save',            (e, s)  => { saveState(s); return true })
+ipcMain.handle('get-user-data-path',    ()      => app.getPath('userData'))
+ipcMain.handle('get-app-version',       ()      => app.getVersion())
+ipcMain.handle('get-displays', () => screen.getAllDisplays().map((d, i) => ({
+  index: i, id: d.id,
+  label: `Display ${i + 1} (${d.size.width}x${d.size.height})`,
+  bounds: d.bounds, workArea: d.workArea
+})))
 ipcMain.handle('open-folder-dialog', async () => {
   const res = await dialog.showOpenDialog(controlWin, { properties: ['openDirectory'] })
   return res.canceled ? null : res.filePaths[0]
@@ -220,16 +245,18 @@ ipcMain.handle('read-image-folder', (e, folderPath) => {
       .map(f => ({ name: path.basename(f, path.extname(f)), path: path.join(folderPath, f) }))
   } catch { return [] }
 })
-ipcMain.handle('check-folder-exists', (e, folderPath) => {
-  try { return fs.existsSync(folderPath) } catch { return false }
-})
+ipcMain.handle('check-folder-exists', (e, p) => { try { return fs.existsSync(p) } catch { return false } })
 ipcMain.handle('create-named-folder', (e, base, name) => {
   const full = path.join(base, name)
   fs.mkdirSync(full, { recursive: true })
   return full
 })
-ipcMain.handle('get-app-version', () => app.getVersion())
-
+ipcMain.handle('rename-folder', (e, oldPath, newName) => {
+  const dir = path.dirname(oldPath)
+  const newPath = path.join(dir, newName)
+  fs.renameSync(oldPath, newPath)
+  return newPath
+})
 ipcMain.handle('get-number-styles-dir', () => {
   const dir = path.join(app.getPath('userData'), 'number-styles')
   fs.mkdirSync(dir, { recursive: true })

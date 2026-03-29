@@ -49,13 +49,16 @@ section { padding: 14px 16px; border-bottom: 1px solid #ddd; flex-shrink: 0; }
 
 /* ── Room columns ──────────────────────────────────────── */
 #rooms-container {
-  display: flex; flex: 1; overflow-y: auto; min-height: 0;
+  display: flex; flex: 1; min-height: 0; overflow: hidden;
 }
 #rooms-container.one-room  .room-col { flex: 1; }
 #rooms-container.two-rooms .room-col { flex: 1; min-width: 0; }
 #rooms-container.two-rooms #room-col-1 { border-left: 1px solid #ddd; }
 #rooms-container.one-room  #room-col-1 { display: none; }
-.room-col { padding: 12px 14px; display: flex; flex-direction: column; gap: 12px; }
+.room-col {
+  padding: 12px 14px; display: flex; flex-direction: column;
+  gap: 12px; overflow: hidden; min-height: 0;
+}
 
 /* ── Text hints ────────────────────────────────────────── */
 .hint-text-area { display: flex; flex-direction: column; }
@@ -254,4 +257,14 @@ details[open] > summary::before { content: '▼'; }
   display: flex; align-items: center; gap: 8px;
   padding: 4px 0 6px;
   border-bottom: 1px solid #eee; margin-bottom: 6px;
+}
+
+/* ── Scrollable picture hints area ──────────────────── */
+.hint-pic-area {
+  display: flex; flex-direction: column;
+  flex: 1; min-height: 0; overflow: hidden;
+}
+.phases-scroll {
+  flex: 1; overflow-y: auto; min-height: 0;
+  padding-right: 2px;
 }

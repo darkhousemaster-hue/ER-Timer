@@ -126,7 +126,8 @@ body.layout-mode #layout-bar { display: flex; }
   position: fixed; z-index: 20;
   top: 50%; left: 50%; transform: translate(-50%, -50%);
   display: none; background: rgba(0,0,0,0.5);
-  padding: 12px; border-radius: 12px;
+  padding: 5px; border-radius: 6px;
+  width: fit-content; height: fit-content;
 }
 #hint-img-el {
   width: 90vw; height: 88vh;

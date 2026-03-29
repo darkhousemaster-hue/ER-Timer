@@ -263,7 +263,7 @@ function startTimer() {
       stopCountdownAudio()
       setTimeout(() => {
         if (state.settings.gameoverSound) {
-          gameoverAudio = new Audio('file:///' + state.settings.gameoverSound.replace(/\\/g, '/'))
+          gameoverAudio = new Audio('file:///' + resolveAssetPath(state.settings.gameoverSound).replace(/\\/g, '/'))
           gameoverAudio.play().catch(() => {})
         }
       }, 500)
@@ -277,7 +277,7 @@ function startTimer() {
     const trigger = parseInt(state.settings.countdownTrigger) || 0
     if (trigger > 0 && secs < trigger && secs >= 0 && state.settings.countdownSound) {
       stopCountdownAudio()
-      countdownAudio = new Audio('file:///' + state.settings.countdownSound.replace(/\\/g, '/'))
+      countdownAudio = new Audio('file:///' + resolveAssetPath(state.settings.countdownSound).replace(/\\/g, '/'))
       countdownAudio.play().catch(() => {})
     }
     scheduleSave()
@@ -291,6 +291,7 @@ function startTimer() {
 function pauseTimer() {
   clearTimeout(timerInterval); timerInterval = null
   state.timerRunning = false
+  stopCountdownAudio()  // stop countdown sound when paused
 }
 
 function resetTimer() {
@@ -386,7 +387,12 @@ function applyTwoRoomsMode(on) {
     const el = document.getElementById(id)
     if (el) el.style.display = on ? 'flex' : 'none'
   })
-  window.api.send('set-room-count', { count: on ? 2 : 1 })
+  const wb = state.windowBounds || {}
+  window.api.send('set-room-count', {
+    count: on ? 2 : 1,
+    savedBounds: wb.timer2 || null,
+    fullscreen: wb.timer2Fullscreen || false
+  })
 }
 document.getElementById('chk-two-rooms').onchange = e => {
   applyTwoRoomsMode(e.target.checked)
@@ -590,6 +596,11 @@ document.getElementById('btn-fs-1').onclick = () =>
 // ════════════════════════════════════════════════════════
 // TEXT HINTS
 // ════════════════════════════════════════════════════════
+
+// Per-room hint history caches (last 20)
+const hintHistory = [[], []]
+const hintHistoryPos = [-1, -1]  // -1 = not browsing
+
 document.querySelectorAll('.btn-hint-send').forEach(btn => {
   btn.onclick = () => sendTextHint(parseInt(btn.dataset.room))
 })
@@ -598,13 +609,59 @@ document.querySelectorAll('.btn-hint-del').forEach(btn => {
 })
 document.querySelectorAll('.hint-input').forEach(inp => {
   inp.addEventListener('keydown', e => {
-    if (e.key === 'Enter') sendTextHint(parseInt(inp.dataset.room))
+    const r = parseInt(inp.dataset.room)
+    if (e.key === 'Enter') {
+      sendTextHint(r)
+      hintHistoryPos[r] = -1  // reset position after sending
+      return
+    }
+    // Arrow up — go back in history
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      const hist = hintHistory[r]
+      if (!hist.length) return
+      hintHistoryPos[r] = Math.min(hintHistoryPos[r] + 1, hist.length - 1)
+      inp.value = hist[hintHistoryPos[r]]
+      return
+    }
+    // Arrow down — go forward in history
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      const hist = hintHistory[r]
+      hintHistoryPos[r] = Math.max(hintHistoryPos[r] - 1, -1)
+      inp.value = hintHistoryPos[r] === -1 ? '' : hist[hintHistoryPos[r]]
+      return
+    }
   })
+})
+
+// Global keyboard shortcuts (when hint input is NOT focused)
+document.addEventListener('keydown', e => {
+  if (state.managerMode) return
+  const tag = document.activeElement?.tagName
+  const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+  // Space = start timer
+  if (e.key === ' ' && !inInput) {
+    e.preventDefault()
+    if (!state.timerRunning) startTimer()
+    else pauseTimer()
+    scheduleSave()
+    return
+  }
+  // Enter on hint input = delete hint from timer (handled above)
+  // Enter globally (not in input) = clear text hint for room 0
+  if (e.key === 'Enter' && !inInput) {
+    deleteTextHint(0)
+    if (state.twoRooms) deleteTextHint(1)
+  }
 })
 function sendTextHint(roomIndex) {
   const inp  = document.querySelector(`.hint-input[data-room='${roomIndex}']`)
   const text = inp.value.trim()
   if (!text) return
+  // Add to history (newest first, max 20)
+  hintHistory[roomIndex] = [text, ...hintHistory[roomIndex].filter(h => h !== text)].slice(0, 20)
+  hintHistoryPos[roomIndex] = -1
   state.rooms[roomIndex].currentTextHint = text
   window.api.send('hint-text', { roomIndex, text })
   if (state.rooms[roomIndex].hintSoundOn !== false)
@@ -672,10 +729,8 @@ function removeActiveImageHint(roomIndex) {
 // ════════════════════════════════════════════════════════
 function genId() { return '_' + Math.random().toString(36).slice(2, 9) }
 
-document.getElementById('phases-0').parentElement
-  .querySelector('.btn-add-phase').addEventListener('click', () => addPhase(0))
-document.getElementById('phases-1').parentElement
-  .querySelector('.btn-add-phase').addEventListener('click', () => addPhase(1))
+document.querySelector('.btn-add-phase[data-room="0"]').addEventListener('click', () => addPhase(0))
+document.querySelector('.btn-add-phase[data-room="1"]').addEventListener('click', () => addPhase(1))
 
 async function addPhase(roomIndex) {
   const name = await showPrompt('Phase name:')
@@ -746,13 +801,60 @@ function buildPhaseEl(phase, roomIndex) {
     if (e.target === delBtn) return
     const open = body.classList.toggle('open')
     toggle.classList.toggle('open', open)
-    // Track open state so re-render preserves it
     if (open) openPhases.add(phase.id)
-    else openPhases.delete(phase.id)
+    else {
+      openPhases.delete(phase.id)
+      // Cascade: close all riddles under this phase (data + DOM)
+      phase.riddles.forEach(r => {
+        openRiddles.delete(r.id)
+        // Also directly collapse any open riddle-body elements in the DOM
+        body.querySelectorAll('.riddle-body.open').forEach(rb => rb.classList.remove('open'))
+        body.querySelectorAll('.riddle-toggle.open').forEach(rt => rt.classList.remove('open'))
+      })
+    }
   })
+
+  // Rename button — double-click name or click ✎
+  const renamePhaseBtn = managerBtn('✎')
+  renamePhaseBtn.title = 'Rename phase'
+  renamePhaseBtn.onclick = async e => {
+    e.stopPropagation()
+    const newName = await showPrompt(`Rename phase "${phase.name}" to:`)
+    if (!newName || !newName.trim()) return
+    phase.name = newName.trim()
+    nameEl.textContent = phase.name
+    scheduleSave()
+  }
+
+  // Move up/down buttons
+  const moveUpBtn = managerBtn('▲')
+  moveUpBtn.title = 'Move phase up'
+  moveUpBtn.onclick = e => {
+    e.stopPropagation()
+    const phases = state.rooms[roomIndex].phases
+    const idx = phases.indexOf(phase)
+    if (idx <= 0) return
+    ;[phases[idx - 1], phases[idx]] = [phases[idx], phases[idx - 1]]
+    renderPhases(roomIndex)
+    scheduleSave()
+  }
+  const moveDownBtn = managerBtn('▼')
+  moveDownBtn.title = 'Move phase down'
+  moveDownBtn.onclick = e => {
+    e.stopPropagation()
+    const phases = state.rooms[roomIndex].phases
+    const idx = phases.indexOf(phase)
+    if (idx === -1 || idx >= phases.length - 1) return
+    ;[phases[idx], phases[idx + 1]] = [phases[idx + 1], phases[idx]]
+    renderPhases(roomIndex)
+    scheduleSave()
+  }
 
   hdr.appendChild(toggle)
   hdr.appendChild(nameEl)
+  hdr.appendChild(renamePhaseBtn)
+  hdr.appendChild(moveUpBtn)
+  hdr.appendChild(moveDownBtn)
   hdr.appendChild(delBtn)
 
   const addRiddleBtn = managerBtn('+ Add Riddle')
@@ -820,8 +922,49 @@ function buildRiddleEl(riddle, phase, roomIndex) {
     else openRiddles.delete(riddle.id)
   })
 
+  // Rename button
+  const renameRiddleBtn = managerBtn('✎')
+  renameRiddleBtn.title = 'Rename riddle'
+  renameRiddleBtn.onclick = async e => {
+    e.stopPropagation()
+    const newName = await showPrompt(`Rename riddle "${riddle.name}" to:`)
+    if (!newName || !newName.trim()) return
+    riddle.name = newName.trim()
+    nameEl.textContent = riddle.name
+    scheduleSave()
+  }
+
+  // Move up/down buttons
+  const moveRiddleUpBtn = managerBtn('▲')
+  moveRiddleUpBtn.title = 'Move riddle up'
+  moveRiddleUpBtn.onclick = e => {
+    e.stopPropagation()
+    const riddles = phase.riddles
+    const idx = riddles.indexOf(riddle)
+    if (idx <= 0) return
+    ;[riddles[idx - 1], riddles[idx]] = [riddles[idx], riddles[idx - 1]]
+    openPhases.add(phase.id)
+    renderPhases(roomIndex)
+    scheduleSave()
+  }
+  const moveRiddleDownBtn = managerBtn('▼')
+  moveRiddleDownBtn.title = 'Move riddle down'
+  moveRiddleDownBtn.onclick = e => {
+    e.stopPropagation()
+    const riddles = phase.riddles
+    const idx = riddles.indexOf(riddle)
+    if (idx === -1 || idx >= riddles.length - 1) return
+    ;[riddles[idx], riddles[idx + 1]] = [riddles[idx + 1], riddles[idx]]
+    openPhases.add(phase.id)
+    renderPhases(roomIndex)
+    scheduleSave()
+  }
+
   hdr.appendChild(toggle)
   hdr.appendChild(nameEl)
+  hdr.appendChild(renameRiddleBtn)
+  hdr.appendChild(moveRiddleUpBtn)
+  hdr.appendChild(moveRiddleDownBtn)
   hdr.appendChild(delBtn)
 
   // Add Hint — file picker, multiple selection allowed
@@ -904,6 +1047,7 @@ function buildRiddleEl(riddle, phase, roomIndex) {
     })
     wrap.addEventListener('dragend', () => {
       wrap.style.opacity = '1'
+      dropTargetEl = null
       thumbs.querySelectorAll('.drag-placeholder').forEach(el => el.remove())
     })
 
@@ -914,48 +1058,50 @@ function buildRiddleEl(riddle, phase, roomIndex) {
 
   // Attach dragover and drop to the CONTAINER, not individual images.
   // This way the placeholder div never steals the drop target.
+  // Track drop target by element reference, set via dragenter on each wrap
+  // This avoids hit-testing in dragover which breaks when placeholder shifts layout
+  let dropTargetEl = null
+
+  // dragover on container — just prevent default to allow dropping
   thumbs.addEventListener('dragover', e => {
     if (!state.managerMode || dragSrc === null) return
     e.preventDefault()
-    // Find which image we are hovering over by hit-testing
-    const imgs = [...thumbs.querySelectorAll('.hint-thumb-wrap')]
-    let targetImg = null
-    for (const im of imgs) {
-      const r = im.getBoundingClientRect()
-      if (e.clientX >= r.left && e.clientX <= r.right &&
-          e.clientY >= r.top  && e.clientY <= r.bottom) {
-        targetImg = im; break
-      }
-    }
+  })
+
+  // dragenter on container — update placeholder when entering a new thumb
+  thumbs.addEventListener('dragenter', e => {
+    if (!state.managerMode || dragSrc === null) return
+    e.preventDefault()
+    // Walk up from event target to find the .hint-thumb-wrap
+    const wrap = e.target.closest('.hint-thumb-wrap')
+    if (!wrap || wrap === dropTargetEl) return  // no change
+    if (parseInt(wrap.dataset.idx) === dragSrc) return  // same as source
+    dropTargetEl = wrap
+    // Remove old placeholder and insert new one
     thumbs.querySelectorAll('.drag-placeholder').forEach(el => el.remove())
-    if (!targetImg || parseInt(targetImg.dataset.idx) === dragSrc) return
     const ph = document.createElement('div')
     ph.className = 'drag-placeholder'
-    const targetIdx = parseInt(targetImg.dataset.idx)
-    if (targetIdx > dragSrc) thumbs.insertBefore(ph, targetImg.nextSibling)
-    else thumbs.insertBefore(ph, targetImg)
+    const targetIdx = parseInt(wrap.dataset.idx)
+    // Insert before or after based on direction
+    if (targetIdx > dragSrc) thumbs.insertBefore(ph, wrap.nextSibling)
+    else thumbs.insertBefore(ph, wrap)
   })
 
   thumbs.addEventListener('dragleave', e => {
-    if (!thumbs.contains(e.relatedTarget))
+    // Only clear when leaving the whole thumbs container
+    if (!thumbs.contains(e.relatedTarget)) {
       thumbs.querySelectorAll('.drag-placeholder').forEach(el => el.remove())
+      dropTargetEl = null
+    }
   })
 
   thumbs.addEventListener('drop', e => {
     e.preventDefault()
     thumbs.querySelectorAll('.drag-placeholder').forEach(el => el.remove())
-    if (dragSrc === null) return
-    // Find drop target image by position
-    const imgs = [...thumbs.querySelectorAll('.hint-thumb-wrap')]
-    let dropIdx = null
-    for (const im of imgs) {
-      const r = im.getBoundingClientRect()
-      if (e.clientX >= r.left && e.clientX <= r.right &&
-          e.clientY >= r.top  && e.clientY <= r.bottom) {
-        dropIdx = parseInt(im.dataset.idx); break
-      }
-    }
-    if (dropIdx === null || dropIdx === dragSrc) { dragSrc = null; return }
+    if (dragSrc === null || dropTargetEl === null) { dragSrc = null; dropTargetEl = null; return }
+    const dropIdx = parseInt(dropTargetEl.dataset.idx)
+    dropTargetEl = null
+    if (dropIdx === dragSrc) { dragSrc = null; return }
     const moved = riddle.hints.splice(dragSrc, 1)[0]
     riddle.hints.splice(dropIdx, 0, moved)
     dragSrc = null
@@ -998,7 +1144,7 @@ chkNumImages.onchange = e => {
   numImgOff.style.display = e.target.checked ? 'none' : 'flex'
   window.api.send('apply-style', {
     imageMode:    e.target.checked,
-    numberFolder: e.target.checked ? state.settings.activeNumFolder : null,
+    numberFolder: e.target.checked ? resolveNumFolder(state.settings.activeNumFolder) : null,
     fontFamily:   e.target.checked ? null : state.settings.fontFamily
   })
   scheduleSave()
@@ -1034,6 +1180,47 @@ document.getElementById('btn-new-num-folder').onclick = async () => {
 document.getElementById('btn-open-num-folder').onclick = async () => {
   if (state.settings.activeNumFolder)
     await window.api.invoke('reveal-folder', resolveAssetPath(state.settings.activeNumFolder))
+}
+
+// Rename active number folder
+document.getElementById('btn-rename-num-folder').onclick = async () => {
+  const active = state.settings.activeNumFolder
+  if (!active) return
+  const folder = state.numberFolders.find(f => f.path === active)
+  if (!folder) return
+  const newName = await showPrompt(`Rename "${folder.name}" to:`)
+  if (!newName || !newName.trim()) return
+  try {
+    const resolvedPath = resolveAssetPath(active)
+    const newPath = await window.api.invoke('rename-folder', resolvedPath, newName.trim())
+    folder.name = newName.trim()
+    folder.path = makeRelative(newPath)
+    state.settings.activeNumFolder = folder.path
+    refreshNumFolderList()
+    scheduleSave()
+  } catch (err) {
+    await showPrompt('Rename failed: ' + err.message)
+  }
+}
+
+// Move folder up/down in the list
+document.getElementById('btn-folder-up').onclick = () => {
+  const active = state.settings.activeNumFolder
+  const idx = state.numberFolders.findIndex(f => f.path === active)
+  if (idx <= 0) return
+  ;[state.numberFolders[idx - 1], state.numberFolders[idx]] =
+   [state.numberFolders[idx], state.numberFolders[idx - 1]]
+  refreshNumFolderList()
+  scheduleSave()
+}
+document.getElementById('btn-folder-down').onclick = () => {
+  const active = state.settings.activeNumFolder
+  const idx = state.numberFolders.findIndex(f => f.path === active)
+  if (idx === -1 || idx >= state.numberFolders.length - 1) return
+  ;[state.numberFolders[idx], state.numberFolders[idx + 1]] =
+   [state.numberFolders[idx + 1], state.numberFolders[idx]]
+  refreshNumFolderList()
+  scheduleSave()
 }
 
 // Delete selected number folder from the list
@@ -1100,8 +1287,8 @@ document.getElementById('btn-bg-image').onclick = () => {
   inp.onchange = e => {
     const file = e.target.files[0]
     if (!file) return
-    state.settings.bgImage = file.path
-    window.api.send('apply-style', { bgImage: file.path })
+    state.settings.bgImage = makeRelative(file.path)
+    window.api.send('apply-style', { bgImage: resolveAssetPath(state.settings.bgImage) })
     scheduleSave()
   }
   inp.click()
@@ -1439,6 +1626,24 @@ window.api.on('layout-mode-done', () => {
 window.api.on('save-layout', data => {
   state.settings.timerLayout = data.positions
   scheduleSave()
+})
+
+// ════════════════════════════════════════════════════════
+// SAVE WINDOW BOUNDS — save every 5s and on page hide
+// (beforeunload can't await, so we save proactively)
+// ════════════════════════════════════════════════════════
+async function saveWithBounds() {
+  try {
+    const bounds = await window.api.invoke('get-window-bounds')
+    state.windowBounds = bounds
+    const toSave = JSON.parse(JSON.stringify(state))
+    toSave.timerRunning = false
+    await window.api.invoke('state-save', toSave)
+  } catch {}
+}
+setInterval(saveWithBounds, 5000)  // save every 5s
+window.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') saveWithBounds()
 })
 
 // ════════════════════════════════════════════════════════

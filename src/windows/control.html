@@ -69,7 +69,9 @@
         <button class="btn-remove-all" data-room="0">Remove all</button>
         <button class="btn-add-phase manager-only" data-room="0">+ Phase</button>
       </div>
-      <div class="phases-container" id="phases-0"></div>
+      <div class="phases-scroll">
+        <div class="phases-container" id="phases-0"></div>
+      </div>
     </div>
   </div>
 
@@ -100,7 +102,9 @@
         <button class="btn-remove-all" data-room="1">Remove all</button>
         <button class="btn-add-phase manager-only" data-room="1">+ Phase</button>
       </div>
-      <div class="phases-container" id="phases-1"></div>
+      <div class="phases-scroll">
+        <div class="phases-container" id="phases-1"></div>
+      </div>
     </div>
   </div>
 
@@ -139,6 +143,9 @@
           <select id="sel-num-folder"><option value="">— choose folder —</option></select>
           <button id="btn-new-num-folder">Create New</button>
           <button id="btn-open-num-folder">Open Folder</button>
+          <button id="btn-rename-num-folder" class="manager-only" style="display:none;padding:4px 8px;border:1px solid #888;border-radius:6px;background:#fff;font-size:11px;cursor:pointer;font-family:inherit;">Rename</button>
+          <button id="btn-folder-up" class="manager-only" style="display:none;padding:4px 8px;border:1px solid #888;border-radius:6px;background:#fff;font-size:11px;cursor:pointer;font-family:inherit;">▲</button>
+          <button id="btn-folder-down" class="manager-only" style="display:none;padding:4px 8px;border:1px solid #888;border-radius:6px;background:#fff;font-size:11px;cursor:pointer;font-family:inherit;">▼</button>
           <button id="btn-del-num-folder" style="padding:4px 8px;border:1px solid #c44;border-radius:6px;background:#fff;color:#c44;font-size:11px;cursor:pointer;font-family:inherit;">Delete</button>
         </span>
         <span id="num-img-off">
