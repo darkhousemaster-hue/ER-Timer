@@ -5,8 +5,7 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win --x64",
-    "release": "npm version patch && git push --follow-tags"
+    "build": "electron-builder --win --x64"
   },
   "build": {
     "appId": "com.ertimer.app",
@@ -23,21 +22,19 @@
       "icon": "assets/icons/icon.ico"
     },
     "nsis": {
-      "oneClick": true,
-      "createDesktopShortcut": true,
-      "allowToChangeInstallationDirectory": false,
-      "deleteAppDataOnUninstall": false
+      "oneClick": false,
+      "createDesktopShortcut": true
     },
     "files": [
       "src/**/*",
       "assets/**/*",
+      "data/**/*",
       "package.json"
     ],
     "publish": {
       "provider": "github",
       "owner": "darkhousemaster-hue",
-      "repo": "ER-Timer",
-      "releaseType": "release"
+      "repo": "ER-Timer"
     }
   },
   "devDependencies": {
@@ -45,7 +42,6 @@
     "electron-builder": "^24.0.0"
   },
   "dependencies": {
-    "electron-updater": "^6.1.0",
-    "electron-log": "^5.0.0"
+    "electron-updater": "^6.1.0"
   }
 }
