@@ -1577,24 +1577,16 @@ function applyAllSettings() {
   document.getElementById('lbl-numsize').textContent =
     (s.numberSize || 1.0).toFixed(1) + '×'
   refreshNumFolderList()
-  window.api.send('apply-style', {
-    imageMode:    s.imageMode,
-    numberFolder: s.imageMode ? resolveNumFolder(s.activeNumFolder) : null,
-    fontFamily:   s.imageMode ? null : s.fontFamily,
-    timerColor:   s.timerColor,
-    bgImage:      s.bgImage ? resolveAssetPath(s.bgImage) : null,
-    clearBg:      !s.bgImage,
-    layout:       s.timerLayout || null,
-    numberSize:   s.numberSize  || 1.0,
-  })
+  window.api.send('apply-style', buildStylePayload())
 }
 
 // ════════════════════════════════════════════════════════
 // STYLE SYNC — main asks us to re-push styles when win2 loads
 // ════════════════════════════════════════════════════════
-window.api.on('sync-styles-to-win2', () => {
+// Sync styles to all timer windows (called when a new window opens)
+function buildStylePayload() {
   const s = state.settings
-  window.api.send('apply-style', {
+  return {
     imageMode:    s.imageMode,
     numberFolder: s.imageMode ? resolveNumFolder(s.activeNumFolder) : null,
     fontFamily:   s.imageMode ? null : s.fontFamily,
@@ -1603,7 +1595,17 @@ window.api.on('sync-styles-to-win2', () => {
     clearBg:      !s.bgImage,
     layout:       s.timerLayout || null,
     numberSize:   s.numberSize  || 1.0,
-  })
+  }
+}
+
+// Legacy: win2 sync (kept for compatibility)
+window.api.on('sync-styles-to-win2', () => {
+  window.api.send('apply-style', buildStylePayload())
+})
+
+// New: per-room sync when a mirror window opens
+window.api.on('sync-styles-to-room', () => {
+  window.api.send('apply-style', buildStylePayload())
 })
 
 // ════════════════════════════════════════════════════════

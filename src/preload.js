@@ -6,7 +6,8 @@ contextBridge.exposeInMainWorld('api', {
       'timer-tick', 'hint-text', 'hint-image', 'hint-clear',
       'apply-style', 'set-room-count', 'toggle-fullscreen',
       'play-sound', 'set-window-display', 'set-display-mirrors',
-      'save-layout', 'layout-mode-done', 'set-layout-mode'
+      'save-layout', 'layout-mode-done', 'set-layout-mode',
+      'push-styles-to-room'
     ]
     if (allowed.includes(channel)) ipcRenderer.send(channel, data)
   },
@@ -24,7 +25,7 @@ contextBridge.exposeInMainWorld('api', {
     const allowed = [
       'timer-tick', 'hint-text', 'hint-image', 'hint-clear',
       'apply-style', 'init-room', 'play-sound',
-      'sync-styles-to-win2', 'set-layout-mode',
+      'sync-styles-to-win2', 'sync-styles-to-room', 'set-layout-mode',
       'save-layout', 'layout-mode-done', 'updater-status'
     ]
     if (allowed.includes(channel))
