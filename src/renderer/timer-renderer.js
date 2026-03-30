@@ -497,11 +497,11 @@ window.api.on('apply-style', async data => {
     imageMode = data.imageMode
     if (imageMode && data.numberFolder) {
       await loadImageFolder(data.numberFolder)
-      return  // numberFolder already handled, skip the check below
+      // Do NOT return — layout and numberSize still need to be applied below
     }
     else renderAll()
   }
-  if (data.numberFolder && imageMode) await loadImageFolder(data.numberFolder)
+  if (data.numberFolder && imageMode && !data.imageMode) await loadImageFolder(data.numberFolder)
   if (data.layout)     { positions = data.layout; applyPositions() }
   if (data.numberSize !== undefined) applyNumberSize(data.numberSize)
 })
