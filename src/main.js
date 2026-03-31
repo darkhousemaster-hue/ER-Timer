@@ -319,6 +319,17 @@ ipcMain.handle('rename-folder', (e, oldPath, newName) => {
   fs.renameSync(oldPath, newPath)
   return newPath
 })
+// Manual update check triggered from settings button
+ipcMain.on('check-for-updates', () => {
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdates().catch(err => {
+      controlWin?.webContents.send('updater-status', 'Update check failed')
+    })
+  } else {
+    controlWin?.webContents.send('updater-status', 'Updates only work in built app')
+  }
+})
+
 ipcMain.handle('get-number-styles-dir', () => {
   const dir = path.join(app.getPath('userData'), 'number-styles')
   fs.mkdirSync(dir, { recursive: true })

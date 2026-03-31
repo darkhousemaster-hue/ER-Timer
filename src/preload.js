@@ -7,7 +7,7 @@ contextBridge.exposeInMainWorld('api', {
       'apply-style', 'set-room-count', 'toggle-fullscreen',
       'play-sound', 'set-window-display', 'set-display-mirrors',
       'save-layout', 'layout-mode-done', 'set-layout-mode',
-      'push-styles-to-room'
+      'push-styles-to-room', 'check-for-updates'
     ]
     if (allowed.includes(channel)) ipcRenderer.send(channel, data)
   },

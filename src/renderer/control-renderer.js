@@ -1656,6 +1656,12 @@ window.api.getVersion().then(v => {
   if (el) el.textContent = 'ER Timer v' + v
 })
 
+document.getElementById('btn-check-update').onclick = () => {
+  window.api.send('check-for-updates')
+  const bar = document.getElementById('update-status')
+  if (bar) { bar.textContent = '🔄 Checking for updates...'; bar.style.display = 'block' }
+}
+
 // Show update status in the bottom bar
 let updaterHideTimer = null
 window.api.on('updater-status', msg => {
