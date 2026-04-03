@@ -31,6 +31,8 @@ let state = {
     displayMirrors:    [[], []],  // all selected screens per room
     timerLayout:       null,      // saved digit positions { d0:{left,top}, ... }
     numberSize:        1.0,       // scale multiplier for digit images
+    hintTimeoutEnabled: false,    // auto-hide hints after N seconds
+    hintTimeout:        10,       // seconds
   }
 }
 
@@ -1353,6 +1355,25 @@ document.getElementById('inp-countdown-trigger').oninput = e => {
   scheduleSave()
 }
 
+document.getElementById('chk-hint-timeout').onchange = e => {
+  state.settings.hintTimeoutEnabled = e.target.checked
+  document.getElementById('inp-hint-timeout').disabled = !e.target.checked
+  window.api.send('apply-style', {
+    hintTimeoutEnabled: e.target.checked,
+    hintTimeout: state.settings.hintTimeout
+  })
+  scheduleSave()
+}
+document.getElementById('inp-hint-timeout').oninput = e => {
+  const val = Math.max(1, parseInt(e.target.value) || 10)
+  state.settings.hintTimeout = val
+  window.api.send('apply-style', {
+    hintTimeoutEnabled: state.settings.hintTimeoutEnabled,
+    hintTimeout: val
+  })
+  scheduleSave()
+}
+
 async function populateAudioDevices() {
   const devices = await navigator.mediaDevices.enumerateDevices()
   const outputs = devices.filter(d => d.kind === 'audiooutput')
@@ -1459,8 +1480,10 @@ const DEFAULT_SETTINGS = {
   audioDeviceIds:   [[], []],
   displayIndex:     [0, 1],
   displayMirrors:   [[], []],
-  timerLayout:      null,
-  numberSize:       1.0,
+  timerLayout:        null,
+  numberSize:         1.0,
+  hintTimeoutEnabled: false,
+  hintTimeout:        10,
 }
 
 function refreshPresetList() {
@@ -1576,6 +1599,13 @@ function applyAllSettings() {
   if (triggerInp) triggerInp.value = s.countdownTrigger || 0
   document.getElementById('lbl-numsize').textContent =
     (s.numberSize || 1.0).toFixed(1) + '×'
+  const chkTO = document.getElementById('chk-hint-timeout')
+  const inpTO = document.getElementById('inp-hint-timeout')
+  if (chkTO) chkTO.checked = s.hintTimeoutEnabled !== false
+  if (inpTO) {
+    inpTO.value = s.hintTimeout || 10
+    inpTO.disabled = s.hintTimeoutEnabled === false
+  }
   refreshNumFolderList()
   window.api.send('apply-style', buildStylePayload())
 }
@@ -1593,8 +1623,10 @@ function buildStylePayload() {
     timerColor:   s.timerColor,
     bgImage:      s.bgImage ? resolveAssetPath(s.bgImage) : null,
     clearBg:      !s.bgImage,
-    layout:       s.timerLayout || null,
-    numberSize:   s.numberSize  || 1.0,
+    layout:             s.timerLayout || null,
+    numberSize:         s.numberSize  || 1.0,
+    hintTimeoutEnabled: s.hintTimeoutEnabled !== false,
+    hintTimeout:        s.hintTimeout || 10,
   }
 }
 

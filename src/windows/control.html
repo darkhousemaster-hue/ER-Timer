@@ -7,7 +7,7 @@
 </head>
 <body>
 
-<!-- ══ SHARED TIMER ════════════════════════════════════════════ -->
+<!-- ══ TIMER ════════════════════════════════════════════════════ -->
 <section id="timer-section">
   <div id="digit-controls">
     <div class="dc-col">
@@ -45,7 +45,6 @@
   <!-- Room 1 -->
   <div class="room-col" id="room-col-0">
     <div class="room-label-row"><span class="room-label" id="room-name-0">Room 1</span><input type="text" id="room-name-input-0" class="room-name-input manager-only" value="Room 1" placeholder="Room name" style="display:none"><button id="btn-fs-0" class="btn-fullscreen" title="Fullscreen">⛶</button></div>
-
     <div class="hint-sound-controls">
       <label class="toggle-row" style="font-size:11px;gap:5px;">
         <input type="checkbox" class="chk-hint-sound-on" data-room="0" checked>
@@ -61,7 +60,6 @@
         <button class="btn-hint-del"  data-room="0">Delete</button>
       </div>
     </div>
-
     <div class="hint-pic-area">
       <div class="pic-header">
         <span class="sub-label" style="margin:0">Picture hints</span>
@@ -78,7 +76,6 @@
   <!-- Room 2 -->
   <div class="room-col" id="room-col-1">
     <div class="room-label-row"><span class="room-label" id="room-name-1">Room 2</span><input type="text" id="room-name-input-1" class="room-name-input manager-only" value="Room 2" placeholder="Room name" style="display:none"><button id="btn-fs-1" class="btn-fullscreen" title="Fullscreen">⛶</button></div>
-
     <div class="hint-sound-controls">
       <label class="toggle-row" style="font-size:11px;gap:5px;">
         <input type="checkbox" class="chk-hint-sound-on" data-room="1" checked>
@@ -94,7 +91,6 @@
         <button class="btn-hint-del"  data-room="1">Delete</button>
       </div>
     </div>
-
     <div class="hint-pic-area">
       <div class="pic-header">
         <span class="sub-label" style="margin:0">Picture hints</span>
@@ -129,7 +125,7 @@
     <div id="ss-content">
 
       <div class="ss-row">
-        <label>Style Preset</label>
+        <label>Style Preset <span class="tip" data-tip="Save and load full visual configurations. Create New resets all settings to defaults so you can build from scratch. Changes auto-save to the active preset.">?</span></label>
         <select id="sel-preset"><option value="">— no preset —</option></select>
         <button id="btn-create-preset">Create New</button>
         <button id="btn-delete-preset">Delete</button>
@@ -137,7 +133,7 @@
       </div>
 
       <div class="ss-row">
-        <label>Number Images</label>
+        <label>Number Images <span class="tip" data-tip="Replace the default text digits with custom images. Create a folder, drop in files named 0.png–9.png and colon.png, then select the folder. The app pre-loads all images for smooth transitions.">?</span></label>
         <input type="checkbox" id="chk-num-images">
         <span id="num-img-on" style="display:none;gap:6px;align-items:center;flex-wrap:wrap">
           <select id="sel-num-folder"><option value="">— choose folder —</option></select>
@@ -160,73 +156,83 @@
       </div>
 
       <div class="ss-row">
-        <label>Number Size</label>
+        <label>Number Size <span class="tip" data-tip="Scale the digit images up or down. 1.0× is the base size. Saved per preset. Use Edit Layout to reposition digits after resizing.">?</span></label>
         <button id="btn-numsize-down" style="width:28px;padding:3px 0;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;font-size:14px;">−</button>
         <span id="lbl-numsize" style="font-size:13px;font-weight:600;font-family:'Courier New',monospace;min-width:36px;text-align:center;">1.0×</span>
         <button id="btn-numsize-up" style="width:28px;padding:3px 0;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;font-size:14px;">＋</button>
       </div>
 
       <div class="ss-row">
-        <label>Background Image</label>
+        <label>Hint Timeout <span class="tip" data-tip="When enabled, text and image hints automatically disappear from the timer window after the set number of seconds. When off, hints stay until manually removed.">?</span></label>
+        <label class="toggle-row" style="gap:5px;font-size:12px;">
+          <input type="checkbox" id="chk-hint-timeout">
+          <span>Auto-hide after</span>
+        </label>
+        <input type="number" id="inp-hint-timeout" min="1" max="300" value="10"
+               style="width:52px;padding:4px 6px;border:1px solid #ddd;border-radius:6px;font-size:12px;font-family:inherit;" disabled>
+        <span style="font-size:11px;color:#888">seconds</span>
+      </div>
+
+      <div class="ss-row">
+        <label>Background Image <span class="tip" data-tip="Set a background image for the timer window. Recommended size: 1920×1080 px (16:9). The image stretches to fill the window exactly. Use Clear to remove it.">?</span></label>
         <button id="btn-bg-image">Add Image</button>
         <button id="btn-bg-clear">Clear</button>
       </div>
 
       <div class="ss-row">
-        <label>Timer Color</label>
+        <label>Timer Color <span class="tip" data-tip="The color of the timer digits when using text/font mode (not image mode). Click the color swatch to open the color picker.">?</span></label>
         <input type="color" id="sel-timer-color" value="#ffffff"
                style="width:44px;height:30px;padding:2px;border:1px solid #ddd;border-radius:6px;cursor:pointer;background:#fff;">
         <span id="lbl-timer-color" style="font-size:11px;color:#888;font-family:'Courier New',monospace;">#ffffff</span>
       </div>
 
       <div class="ss-row">
-        <label>Hint Sound</label>
+        <label>Hint Sound <span class="tip" data-tip="A sound played when a hint is sent to the timer window. Toggle and test per room using the controls above the text hint box. Supports MP3, WAV, OGG.">?</span></label>
         <button id="btn-hint-sound">Upload</button>
         <span id="lbl-hint-sound" class="file-label">No file</span>
         <button id="btn-hint-sound-clear" style="display:none;padding:4px 8px;border:1px solid #ddd;border-radius:6px;background:#fff;font-size:11px;cursor:pointer;color:#c44;">✕</button>
       </div>
 
       <div class="ss-row">
-        <label>Game Over Sound</label>
+        <label>Game Over Sound <span class="tip" data-tip="Plays 500ms after the timer reaches 00:00. Stops when Reset is pressed. Supports MP3, WAV, OGG.">?</span></label>
         <button id="btn-gameover-sound">Upload</button>
         <span id="lbl-gameover-sound" class="file-label">No file</span>
         <button id="btn-gameover-sound-clear" style="display:none;padding:4px 8px;border:1px solid #ddd;border-radius:6px;background:#fff;font-size:11px;cursor:pointer;color:#c44;">✕</button>
       </div>
 
       <div class="ss-row">
-        <label>Countdown Sound</label>
+        <label>Countdown Sound <span class="tip" data-tip="Plays once per second when the timer drops below the trigger threshold. Stops on pause or reset. Set trigger to 0 to disable.">?</span></label>
         <button id="btn-countdown-sound">Upload</button>
         <span id="lbl-countdown-sound" class="file-label">No file</span>
         <button id="btn-countdown-sound-clear" style="display:none;padding:4px 8px;border:1px solid #ddd;border-radius:6px;background:#fff;font-size:11px;cursor:pointer;color:#c44;">✕</button>
       </div>
 
       <div class="ss-row">
-        <label>Countdown trigger</label>
+        <label>Countdown Trigger <span class="tip" data-tip="How many seconds before zero the countdown sound starts playing. For example: 60 means it starts when the timer hits 1:00. Set to 0 to disable.">?</span></label>
         <input type="number" id="inp-countdown-trigger" min="0" max="3600" value="0"
                style="width:64px;padding:4px 6px;border:1px solid #ddd;border-radius:6px;font-size:12px;font-family:inherit;">
         <span style="font-size:11px;color:#888">seconds remaining (0 = off)</span>
       </div>
 
       <div class="ss-row">
-        <label>Room 1 — Audio</label>
+        <label>Room 1 — Audio <span class="tip" data-tip="Select which audio output device(s) Room 1 uses for hint, countdown and game-over sounds. Tick multiple devices to play sounds on all of them simultaneously.">?</span></label>
         <div id="audio-device-list-0" class="device-list"></div>
       </div>
       <div class="ss-row" id="row-room2-audio" style="display:none">
-        <label>Room 2 — Audio</label>
+        <label>Room 2 — Audio <span class="tip" data-tip="Select which audio output device(s) Room 2 uses. Independent from Room 1.">?</span></label>
         <div id="audio-device-list-1" class="device-list"></div>
       </div>
       <div class="ss-row">
-        <label>Room 1 — Display</label>
+        <label>Room 1 — Display <span class="tip" data-tip="Choose which screen(s) Room 1's timer window appears on. The first checked screen moves the main window there. Additional screens open mirror windows showing the same content.">?</span></label>
         <div id="display-device-list-0" class="device-list"></div>
       </div>
       <div class="ss-row" id="row-room2-display" style="display:none">
-        <label>Room 2 — Display</label>
+        <label>Room 2 — Display <span class="tip" data-tip="Choose which screen(s) Room 2's timer window appears on. Independent from Room 1.">?</span></label>
         <div id="display-device-list-1" class="device-list"></div>
       </div>
 
-
       <div class="ss-row">
-        <label>Default Reset Time</label>
+        <label>Default Reset Time <span class="tip" data-tip="The time the timer returns to when Reset is pressed. Type in MM:SS format (e.g. 60:00) and click Set. This is independent of the current timer display.">?</span></label>
         <input type="text" id="reset-time-input" placeholder="MM:SS" maxlength="5"
                style="width:70px;text-align:center;font-family:'Courier New',monospace;font-size:16px;font-weight:700;letter-spacing:2px;">
         <button id="btn-reset-apply">Set</button>

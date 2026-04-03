@@ -5,6 +5,8 @@ let imageCache  = {}
 let timerColor  = 'white'
 let layoutMode  = false
 let currentNumberSize = 1.0
+let hintTimeoutEnabled = false
+let hintTimeoutSecs    = 10
 
 const DEFAULT_POS = {
   d0:        { left: 41,   top: 50 },
@@ -451,11 +453,13 @@ window.api.on('hint-text', data => {
   if (data.text) {
     els.hintText.textContent   = data.text
     els.hintText.style.display = 'block'
-    // Auto-clear after 10 seconds
-    hintTextTimeout = setTimeout(() => {
-      els.hintText.style.display = 'none'
-      els.hintText.textContent   = ''
-    }, 10000)
+    // Auto-clear after configured timeout
+    if (hintTimeoutEnabled) {
+      hintTextTimeout = setTimeout(() => {
+        els.hintText.style.display = 'none'
+        els.hintText.textContent   = ''
+      }, hintTimeoutSecs * 1000)
+    }
   } else {
     els.hintText.style.display = 'none'
     els.hintText.textContent   = ''
@@ -468,11 +472,13 @@ window.api.on('hint-image', data => {
   if (data.src) {
     els.hintImg.src             = data.src
     els.hintImage.style.display = 'block'
-    // Auto-clear after 10 seconds
-    hintImageTimeout = setTimeout(() => {
-      els.hintImage.style.display = 'none'
-      els.hintImg.src             = ''
-    }, 10000)
+    // Auto-clear after configured timeout
+    if (hintTimeoutEnabled) {
+      hintImageTimeout = setTimeout(() => {
+        els.hintImage.style.display = 'none'
+        els.hintImg.src             = ''
+      }, hintTimeoutSecs * 1000)
+    }
   } else {
     els.hintImage.style.display = 'none'
     els.hintImg.src             = ''
@@ -504,6 +510,8 @@ window.api.on('apply-style', async data => {
   if (data.numberFolder && imageMode && !data.imageMode) await loadImageFolder(data.numberFolder)
   if (data.layout)     { positions = data.layout; applyPositions() }
   if (data.numberSize !== undefined) applyNumberSize(data.numberSize)
+  if (data.hintTimeoutEnabled !== undefined) hintTimeoutEnabled = data.hintTimeoutEnabled
+  if (data.hintTimeout !== undefined) hintTimeoutSecs = data.hintTimeout
 })
 
 window.api.on('set-layout-mode', data => {
