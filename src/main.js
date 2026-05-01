@@ -218,6 +218,54 @@ function createControlWindow() {
 }
 
 // IPC routing
+// ── Node.js timer engine — runs in main process, never throttled ──────────
+let nodeTimerInterval = null
+let nodeTimerSeconds  = 0
+let nodeTimerRunning  = false
+
+function secondsToDigits(s) {
+  const mm = Math.floor(s / 60), ss = s % 60
+  return [String(Math.floor(mm/10)), String(mm%10),
+          String(Math.floor(ss/10)), String(ss%10)]
+}
+
+ipcMain.on('timer-start', (e, { seconds }) => {
+  if (nodeTimerRunning) return
+  nodeTimerSeconds = seconds
+  nodeTimerRunning = true
+  function tick() {
+    if (!nodeTimerRunning) return
+    if (nodeTimerSeconds <= 0) {
+      nodeTimerRunning = false
+      nodeTimerInterval = null
+      sendToAll('timer-tick', { digits: secondsToDigits(0) })
+      setTimeout(() => controlWin?.webContents.send('timer-gameover'), 500)
+      return
+    }
+    nodeTimerSeconds--
+    const digits = secondsToDigits(nodeTimerSeconds)
+    sendToAll('timer-tick', { digits })
+    controlWin?.webContents.send('timer-tick-control', { digits, secs: nodeTimerSeconds })
+    nodeTimerInterval = setTimeout(tick, 1000)
+  }
+  nodeTimerInterval = setTimeout(tick, 1000)
+})
+
+ipcMain.on('timer-pause', () => {
+  clearTimeout(nodeTimerInterval); nodeTimerInterval = null
+  nodeTimerRunning = false
+})
+
+ipcMain.on('timer-reset', (e, { seconds }) => {
+  clearTimeout(nodeTimerInterval); nodeTimerInterval = null
+  nodeTimerRunning = false
+  nodeTimerSeconds = seconds
+  const digits = secondsToDigits(seconds)
+  sendToAll('timer-tick', { digits })
+  controlWin?.webContents.send('timer-tick-control', { digits, secs: seconds })
+})
+
+// Legacy: renderer still sends timer-tick for digit display sync
 ipcMain.on('timer-tick',  (e, data) => sendToAll('timer-tick', data))
 ipcMain.on('hint-text',  (e, data) => sendToRoom(data.roomIndex, 'hint-text',  data))
 ipcMain.on('play-sound', (e, data) => sendToRoom(data.roomIndex, 'play-sound', data))

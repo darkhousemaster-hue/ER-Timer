@@ -178,6 +178,8 @@ async function boot() {
   validateNumberFolders()
   setTimeout(() => {
     window.api.send('timer-tick', { digits: state.digits })
+    // Sync current time with main process timer engine
+    window.api.send('timer-reset', { seconds: digitsToSeconds(state.digits) })
     // Push full style including layout to timer windows
     const s = state.settings
     window.api.send('apply-style', {
@@ -216,7 +218,7 @@ function scheduleSave() {
 // ════════════════════════════════════════════════════════
 // TIMER ENGINE
 // ════════════════════════════════════════════════════════
-let timerInterval = null
+// timerInterval removed — timer runs in main process now
 
 function digitsToSeconds(d) {
   return (parseInt(d[0])*10 + parseInt(d[1])) * 60
@@ -249,61 +251,55 @@ function stopAllSounds() {
   stopGameoverAudio()
 }
 
+// Timer runs in main process (Node.js) — immune to window throttling
+// Renderer just sends commands and receives tick updates back
+
 function startTimer() {
-  // Always clear any existing interval first — prevents double-ticking
-  clearInterval(timerInterval); timerInterval = null
   if (state.timerRunning) return
   state.timerRunning = true
-
-  function tick() {
-    if (!state.timerRunning) return
-    let secs = digitsToSeconds(state.digits)
-    if (secs <= 0) {
-      // Already at zero — stop and play gameover after 500ms
-      state.timerRunning = false
-      timerInterval = null
-      stopCountdownAudio()
-      setTimeout(() => {
-        if (state.settings.gameoverSound) {
-          gameoverAudio = new Audio('file:///' + resolveAssetPath(state.settings.gameoverSound).replace(/\\/g, '/'))
-          gameoverAudio.play().catch(() => {})
-        }
-      }, 500)
-      return
-    }
-    secs--
-    state.digits = secondsToDigits(secs)
-    renderDigits()
-    window.api.send('timer-tick', { digits: state.digits })
-    // Countdown sound
-    const trigger = parseInt(state.settings.countdownTrigger) || 0
-    if (trigger > 0 && secs < trigger && secs >= 0 && state.settings.countdownSound) {
-      stopCountdownAudio()
-      countdownAudio = new Audio('file:///' + resolveAssetPath(state.settings.countdownSound).replace(/\\/g, '/'))
-      countdownAudio.play().catch(() => {})
-    }
-    scheduleSave()
-    // Schedule next tick only if still running
-    if (state.timerRunning) timerInterval = setTimeout(tick, 1000)
-  }
-
-  timerInterval = setTimeout(tick, 1000)
+  window.api.send('timer-start', { seconds: digitsToSeconds(state.digits) })
+  scheduleSave()
 }
 
 function pauseTimer() {
-  clearTimeout(timerInterval); timerInterval = null
   state.timerRunning = false
-  stopCountdownAudio()  // stop countdown sound when paused
+  window.api.send('timer-pause')
+  stopCountdownAudio()
 }
 
 function resetTimer() {
-  pauseTimer()
+  state.timerRunning = false
   stopAllSounds()
   state.digits = [...state.resetDigits]
   renderDigits()
-  window.api.send('timer-tick', { digits: state.digits })
+  window.api.send('timer-reset', { seconds: digitsToSeconds(state.resetDigits) })
   scheduleSave()
 }
+
+// Receive tick from main process — update display and handle countdown sound
+window.api.on('timer-tick-control', data => {
+  state.digits = data.digits
+  renderDigits()
+  const trigger = parseInt(state.settings.countdownTrigger) || 0
+  const secs = data.secs
+  if (trigger > 0 && secs < trigger && secs >= 0 && state.settings.countdownSound) {
+    stopCountdownAudio()
+    countdownAudio = new Audio('file:///' + resolveAssetPath(state.settings.countdownSound).replace(/\\/g, '/'))
+    countdownAudio.play().catch(() => {})
+  }
+  scheduleSave()
+})
+
+// Gameover — fired by main process 500ms after hitting zero
+window.api.on('timer-gameover', () => {
+  state.timerRunning = false
+  stopCountdownAudio()
+  if (state.settings.gameoverSound) {
+    gameoverAudio = new Audio('file:///' + resolveAssetPath(state.settings.gameoverSound).replace(/\\/g, '/'))
+    gameoverAudio.play().catch(() => {})
+  }
+  scheduleSave()
+})
 
 document.getElementById('btn-start').onclick = () => { startTimer(); scheduleSave() }
 document.getElementById('btn-pause').onclick = () => { pauseTimer(); scheduleSave() }
@@ -324,9 +320,14 @@ document.querySelectorAll('.dc-btn').forEach(btn => {
     // NOTE: does NOT touch state.resetDigits
     renderDigits()
     window.api.send('timer-tick', { digits: state.digits })
-    // Stop countdown sound if time is now above the trigger threshold
-    const trigger = parseInt(state.settings.countdownTrigger) || 0
+    // Sync new time with main process timer engine
     const secs = digitsToSeconds(state.digits)
+    if (state.timerRunning) {
+      window.api.send('timer-pause')
+      window.api.send('timer-start', { seconds: secs })
+    }
+    // Stop countdown sound if time is now above trigger
+    const trigger = parseInt(state.settings.countdownTrigger) || 0
     if (trigger > 0 && secs >= trigger) stopCountdownAudio()
     scheduleSave()
   })
