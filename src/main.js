@@ -3,9 +3,10 @@ const { autoUpdater } = require('electron-updater')
 const path = require('path')
 const fs   = require('fs')
 
-let controlWin  = null
-let timerWin1   = null
-let timerWin2   = null
+let controlWin       = null
+let minimizeBtnWin   = null
+let timerWin1        = null
+let timerWin2        = null
 
 // Mirror windows per room: mirrorWins[roomIndex] = [BrowserWindow, ...]
 const mirrorWins = { 0: [], 1: [] }
@@ -203,12 +204,25 @@ function createControlWindow() {
     icon: path.join(__dirname, '..', 'assets', 'icons', 'icon.png'),
     backgroundColor: '#f4f4f1',
     autoHideMenuBar: true,
+    alwaysOnTop: true,
     webPreferences: { nodeIntegration: false, contextIsolation: true, preload }
   })
   controlWin.setMenuBarVisibility(false)
+  // Keep above normal windows even when other apps go fullscreen-ish
+  controlWin.setAlwaysOnTop(true, 'floating')
   controlWin.loadFile(path.join(__dirname, 'windows', 'control.html'))
+
+  // Intercept minimize: hide the window and show a small icon-button instead
+  controlWin.on('minimize', (e) => {
+    e.preventDefault()
+    controlWin.hide()
+    showMinimizeButton()
+  })
+
   controlWin.on('closed', () => {
     controlWin = null
+    if (minimizeBtnWin && !minimizeBtnWin.isDestroyed()) minimizeBtnWin.close()
+    minimizeBtnWin = null
     // Close all timer windows and mirrors
     closeAllMirrors(0)
     closeAllMirrors(1)
@@ -216,6 +230,51 @@ function createControlWindow() {
     timerWin2?.close()
   })
 }
+
+// ── Minimized-state icon button ──────────────────────────────────────────
+const MIN_BTN_SIZE = 96 // px, roughly the size of a Windows desktop shortcut
+
+function showMinimizeButton() {
+  if (minimizeBtnWin && !minimizeBtnWin.isDestroyed()) {
+    minimizeBtnWin.show()
+    return
+  }
+  const preload = path.join(__dirname, 'preload.js')
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize
+  minimizeBtnWin = new BrowserWindow({
+    width:  MIN_BTN_SIZE,
+    height: MIN_BTN_SIZE,
+    x: width  - MIN_BTN_SIZE - 24,
+    y: height - MIN_BTN_SIZE - 24,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: true,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    hasShadow: false,
+    title: 'ER Timer',
+    icon: path.join(__dirname, '..', 'assets', 'icons', 'icon.png'),
+    webPreferences: { nodeIntegration: false, contextIsolation: true, preload }
+  })
+  minimizeBtnWin.setAlwaysOnTop(true, 'floating')
+  minimizeBtnWin.loadFile(path.join(__dirname, 'windows', 'minimize-button.html'))
+  minimizeBtnWin.on('closed', () => { minimizeBtnWin = null })
+}
+
+function restoreFromMinimizeButton() {
+  if (minimizeBtnWin && !minimizeBtnWin.isDestroyed()) {
+    minimizeBtnWin.close()
+  }
+  minimizeBtnWin = null
+  if (controlWin && !controlWin.isDestroyed()) {
+    if (controlWin.isMinimized()) controlWin.restore()
+    controlWin.show()
+    controlWin.focus()
+  }
+}
+
+ipcMain.on('restore-control', () => restoreFromMinimizeButton())
 
 // IPC routing
 // ── Node.js timer engine — runs in main process, never throttled ──────────

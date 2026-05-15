@@ -8,7 +8,8 @@ contextBridge.exposeInMainWorld('api', {
       'play-sound', 'set-window-display', 'set-display-mirrors',
       'save-layout', 'layout-mode-done', 'set-layout-mode',
       'push-styles-to-room', 'check-for-updates',
-      'timer-start', 'timer-pause', 'timer-reset'
+      'timer-start', 'timer-pause', 'timer-reset',
+      'restore-control'
     ]
     if (allowed.includes(channel)) ipcRenderer.send(channel, data)
   },
