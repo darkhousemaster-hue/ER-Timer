@@ -208,16 +208,32 @@ function createControlWindow() {
     webPreferences: { nodeIntegration: false, contextIsolation: true, preload }
   })
   controlWin.setMenuBarVisibility(false)
-  // Keep above normal windows even when other apps go fullscreen-ish
-  controlWin.setAlwaysOnTop(true, 'floating')
+  // Strongest level Electron exposes — keeps above other apps incl. most fullscreen windows.
+  // Note: Electron resets the level whenever the window's visibility changes,
+  // so we re-assert it on every show/restore via assertControlOnTop().
+  assertControlOnTop()
   controlWin.loadFile(path.join(__dirname, 'windows', 'control.html'))
 
-  // Intercept minimize: hide the window and show a small icon-button instead
+  // Intercept minimize: capture bounds, hide the window, show the icon-button.
   controlWin.on('minimize', (e) => {
     e.preventDefault()
+    controlWinSavedBounds = controlWin.getBounds()
     controlWin.hide()
     showMinimizeButton()
   })
+
+  // Track bounds whenever the user resizes/moves so we can restore precisely.
+  const trackBounds = () => {
+    if (controlWin && !controlWin.isDestroyed() && controlWin.isVisible()) {
+      controlWinSavedBounds = controlWin.getBounds()
+    }
+  }
+  controlWin.on('resize', trackBounds)
+  controlWin.on('move',   trackBounds)
+
+  // Re-assert always-on-top whenever the OS may have demoted it.
+  controlWin.on('show',  () => assertControlOnTop())
+  controlWin.on('focus', () => assertControlOnTop())
 
   controlWin.on('closed', () => {
     controlWin = null
@@ -233,6 +249,17 @@ function createControlWindow() {
 
 // ── Minimized-state icon button ──────────────────────────────────────────
 const MIN_BTN_SIZE = 96 // px, roughly the size of a Windows desktop shortcut
+let controlWinSavedBounds = null
+
+// Force the control window above other apps. Electron resets the always-on-top
+// LEVEL (not the flag) on visibility changes, so this must be called after
+// every show/restore. 'screen-saver' is the highest level Electron exposes.
+function assertControlOnTop() {
+  if (!controlWin || controlWin.isDestroyed()) return
+  controlWin.setAlwaysOnTop(true, 'screen-saver')
+  controlWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  controlWin.moveTop()
+}
 
 function showMinimizeButton() {
   if (minimizeBtnWin && !minimizeBtnWin.isDestroyed()) {
@@ -270,6 +297,9 @@ function restoreFromMinimizeButton() {
   if (controlWin && !controlWin.isDestroyed()) {
     if (controlWin.isMinimized()) controlWin.restore()
     controlWin.show()
+    // Restore exact bounds (Windows can clobber size/position across hide→show)
+    if (controlWinSavedBounds) controlWin.setBounds(controlWinSavedBounds)
+    assertControlOnTop()
     controlWin.focus()
   }
 }
