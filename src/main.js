@@ -261,9 +261,17 @@ function assertControlOnTop() {
   controlWin.moveTop()
 }
 
+function assertMinBtnOnTop() {
+  if (!minimizeBtnWin || minimizeBtnWin.isDestroyed()) return
+  minimizeBtnWin.setAlwaysOnTop(true, 'screen-saver')
+  minimizeBtnWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  minimizeBtnWin.moveTop()
+}
+
 function showMinimizeButton() {
   if (minimizeBtnWin && !minimizeBtnWin.isDestroyed()) {
     minimizeBtnWin.show()
+    assertMinBtnOnTop()
     return
   }
   const preload = path.join(__dirname, 'preload.js')
@@ -284,8 +292,11 @@ function showMinimizeButton() {
     icon: path.join(__dirname, '..', 'assets', 'icons', 'icon.png'),
     webPreferences: { nodeIntegration: false, contextIsolation: true, preload }
   })
-  minimizeBtnWin.setAlwaysOnTop(true, 'floating')
+  assertMinBtnOnTop()
   minimizeBtnWin.loadFile(path.join(__dirname, 'windows', 'minimize-button.html'))
+  minimizeBtnWin.on('show',  () => assertMinBtnOnTop())
+  minimizeBtnWin.on('focus', () => assertMinBtnOnTop())
+  minimizeBtnWin.on('blur',  () => assertMinBtnOnTop())
   minimizeBtnWin.on('closed', () => { minimizeBtnWin = null })
 }
 
