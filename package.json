@@ -25,6 +25,9 @@
     "nsis": {
       "oneClick": true,
       "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ER Timer",
+      "uninstallDisplayName": "ER Timer",
       "allowToChangeInstallationDirectory": false,
       "deleteAppDataOnUninstall": false
     },
