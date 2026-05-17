@@ -1,6 +1,6 @@
 {
   "name": "er-timer",
-  "version": "2.1.11",
+  "version": "2.1.12",
   "description": "Escape Room dual-room timer",
   "main": "src/main.js",
   "scripts": {
