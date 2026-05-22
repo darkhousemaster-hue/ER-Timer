@@ -215,11 +215,29 @@ function createControlWindow() {
   controlWin.loadFile(path.join(__dirname, 'windows', 'control.html'))
 
   // Intercept minimize: capture bounds, hide the window, show the icon-button.
-  controlWin.on('minimize', (e) => {
-    e.preventDefault()
+  // Note: e.preventDefault() on 'minimize' is unreliable on Windows — the
+  // window is already minimized by the time the event fires. We therefore:
+  //   1. Force the taskbar entry off with setSkipTaskbar(true) so the user
+  //      can't accidentally re-enter the window through a half-minimized
+  //      taskbar button (which leaves it frozen/uninteractive).
+  //   2. Hide the window so only the icon-button is visible.
+  // The 'restore' handler below covers the race where the OS restores the
+  // window via taskbar click before setSkipTaskbar takes effect.
+  controlWin.on('minimize', () => {
     controlWinSavedBounds = controlWin.getBounds()
+    controlWin.setSkipTaskbar(true)
     controlWin.hide()
     showMinimizeButton()
+  })
+
+  // Safety net: if the OS restores the control window through any path
+  // other than the icon-button (e.g. taskbar click before setSkipTaskbar
+  // took effect, Win+D toggle, Task View), funnel through the same
+  // restore routine so the button is dismissed and state stays consistent.
+  controlWin.on('restore', () => {
+    if (minimizeBtnWin && !minimizeBtnWin.isDestroyed()) {
+      restoreFromMinimizeButton()
+    }
   })
 
   // Track bounds whenever the user resizes/moves so we can restore precisely.
@@ -306,6 +324,8 @@ function restoreFromMinimizeButton() {
   }
   minimizeBtnWin = null
   if (controlWin && !controlWin.isDestroyed()) {
+    // Re-enable the taskbar entry first so the OS tracks the window again.
+    controlWin.setSkipTaskbar(false)
     if (controlWin.isMinimized()) controlWin.restore()
     controlWin.show()
     // Restore exact bounds (Windows can clobber size/position across hide→show)
