@@ -12,11 +12,9 @@
   }
   *{box-sizing:border-box}
   html{scroll-behavior:smooth}
-  body{
-    margin:0;background:var(--bg);color:var(--ink);
+  body{margin:0;background:var(--bg);color:var(--ink);
     font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    -webkit-font-smoothing:antialiased;
-  }
+    -webkit-font-smoothing:antialiased}
   .wrap{max-width:1040px;margin:0 auto;padding:0 24px}
   header.hero{display:flex;align-items:center;gap:20px;padding:40px 0 28px;border-bottom:1px solid var(--line)}
   header.hero img{width:72px;height:72px;border-radius:16px;box-shadow:var(--shadow)}
@@ -66,7 +64,7 @@
     <img src="data:image/png;base64,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" alt="ER Timer icon">
     <div>
       <h1>ER Timer - Handbook</h1>
-      <p>Everyday guide for running games. (Manager settings are password-protected and not covered here.)</p>
+      <p>Guide to running a game. Covers only the controls you can use without the Manager password.</p>
     </div>
   </header>
 
@@ -76,21 +74,22 @@
       <a href="#windows">1 - Windows &amp; Always-on-Top</a>
       <a href="#minimize">2 - Minimize to Icon Button</a>
       <a href="#timer">3 - The Timer</a>
-      <a href="#rooms">4 - Rooms &amp; Fullscreen</a>
-      <a href="#texthint">5 - Text Hints</a>
-      <a href="#pichint">6 - Picture Hints</a>
-      <a href="#clearing">7 - Clearing Hints</a>
-      <a href="#manager">8 - Manager Mode</a>
-      <a href="#tips">9 - Tips</a>
+      <a href="#rooms">4 - One or Two Rooms</a>
+      <a href="#fullscreen">5 - Fullscreen</a>
+      <a href="#texthint">6 - Text Hints</a>
+      <a href="#hintsound">7 - Hint Sound</a>
+      <a href="#pichint">8 - Picture Hints</a>
+      <a href="#manager">9 - Manager Mode</a>
+      <a href="#tips">10 - Tips</a>
     </nav>
 
     <main>
       <section class="card" id="windows">
         <h2><span class="num">1</span>Windows &amp; Always-on-Top</h2>
-        <p class="lead">ER Timer runs as two kinds of window.</p>
+        <p class="lead">ER Timer uses two kinds of window.</p>
         <ul>
           <li><b>Control window</b> - the panel you operate (timer and hints).</li>
-          <li><b>Player window</b> - the large countdown your players see, one per room.</li>
+          <li><b>Player window</b> - the large clock your players see, one per room.</li>
         </ul>
         <p>The Control window is <b>always-on-top</b>: it stays visible above other programs, so clicking another app (a browser, music player, etc.) will never hide or bury it.</p>
         <div class="tip"><b>Closing the Control window</b> shuts down the whole app, including the player screen(s).</div>
@@ -105,87 +104,95 @@
           <li>That button <b>always stays on top</b> of every other program, so you can always find it.</li>
           <li><b>Click the icon button</b> and the Control window reopens at the exact same size and position it had before.</li>
         </ol>
-        <div class="tip"><b>Good to know:</b> while minimized, the timer keeps running and players still see their countdown - only your control panel is hidden. The button has no taskbar entry, so it won't clutter your taskbar.</div>
+        <div class="tip"><b>Good to know:</b> while minimized, the clock keeps running and players still see their time - only your control panel is hidden. The button has no taskbar entry, so it won't clutter your taskbar.</div>
       </section>
 
       <section class="card" id="timer">
         <h2><span class="num">3</span>The Timer</h2>
-        <p class="lead">A four-digit MM:SS countdown, mirrored on the player screen.</p>
+        <p class="lead">A four-digit MM:SS clock, shown on the player screen.</p>
         <h3>Setting the time</h3>
         <p>Each digit has a <span class="btn">+</span> above it and a <span class="btn">-</span> below it. Tap them to dial in minutes and seconds before you start.</p>
         <h3>Running it</h3>
         <table>
           <tr><th>Button</th><th>What it does</th></tr>
-          <tr><td><span class="btn go">Start</span></td><td>Begins the countdown from the set time.</td></tr>
-          <tr><td><span class="btn">Pause</span></td><td>Freezes the countdown; press Start to resume.</td></tr>
+          <tr><td><span class="btn go">Start</span></td><td>Begins counting down from the set time.</td></tr>
+          <tr><td><span class="btn">Pause</span></td><td>Freezes the clock; press Start to resume.</td></tr>
           <tr><td><span class="btn warn">Reset</span></td><td>Stops and returns to the default start time.</td></tr>
         </table>
-        <div class="tip">The countdown runs in the app's core process, so it keeps <b>perfect time even when minimized</b> or when other windows are busy.</div>
+        <div class="tip">The clock runs in the app's core process, so it keeps <b>perfect time even when minimized</b> or when other windows are busy.</div>
       </section>
 
       <section class="card" id="rooms">
-        <h2><span class="num">4</span>Rooms &amp; Fullscreen</h2>
-        <p class="lead">Run one room, or two side by side.</p>
+        <h2><span class="num">4</span>One or Two Rooms</h2>
+        <p class="lead">Run a single room, or two rooms side by side.</p>
         <ul>
-          <li>If a second room is enabled, switch between <span class="btn">Room 1</span> and <span class="btn">Room 2</span> tabs. The hints below always apply to the room tab you have selected.</li>
-          <li>The <span class="btn">&#9974;</span> (fullscreen) button toggles the <b>player screen</b> for the current room between windowed and full screen.</li>
+          <li>The <span class="btn">2 Rooms</span> checkbox turns the second room (and its player screen) on or off.</li>
+          <li>With two rooms on, each room has its own column of controls - text hint, hint sound and picture hints - that work independently.</li>
         </ul>
-        <p class="note-lock">Turning the second room on or off is done in password-protected Manager settings.</p>
+      </section>
+
+      <section class="card" id="fullscreen">
+        <h2><span class="num">5</span>Fullscreen</h2>
+        <p class="lead">Each room's player screen can be windowed or full screen.</p>
+        <p>Click the <span class="btn">&#9974;</span> button at the top of a room's column to toggle that room's <b>player window</b> in and out of full screen.</p>
       </section>
 
       <section class="card" id="texthint">
-        <h2><span class="num">5</span>Text Hints</h2>
+        <h2><span class="num">6</span>Text Hints</h2>
         <p class="lead">Send a written clue to the player screen.</p>
         <ol class="steps">
           <li>Type your clue in the <b>"Type a hint..."</b> box.</li>
-          <li>Click <span class="btn go">Send</span> to show it on the player screen for that room.</li>
+          <li>Click <span class="btn go">Send</span> (or press <kbd>Enter</kbd>) to show it on that room's player screen.</li>
+          <li>Click <span class="btn">Delete</span> to clear the text hint and empty the box.</li>
         </ol>
-        <h3>Hint sound</h3>
+      </section>
+
+      <section class="card" id="hintsound">
+        <h2><span class="num">7</span>Hint Sound</h2>
+        <p class="lead">An optional sound that plays on the player screen when you send a hint.</p>
         <ul>
-          <li>The <b>Hint sound</b> checkbox controls whether a sound plays on the player screen each time you send a hint.</li>
-          <li><span class="btn">&#9654; Test</span> plays that sound once so you can check it.</li>
+          <li>The <b>Hint sound</b> checkbox (per room) turns that sound on or off.</li>
+          <li><span class="btn">&#9654; Test</span> plays the sound once so you can check it.</li>
         </ul>
+        <p class="note-lock">Which sound file is used is chosen in the password-protected Manager area.</p>
       </section>
 
       <section class="card" id="pichint">
-        <h2><span class="num">6</span>Picture Hints</h2>
-        <p class="lead">Push a prepared image to the player screen with a single click.</p>
-        <p>Picture hints are organised into <b>Phases</b>, and each phase holds <b>Riddles</b>, and each riddle holds <b>images</b>. (This library is set up in advance in Manager Mode.)</p>
+        <h2><span class="num">8</span>Picture Hints</h2>
+        <p class="lead">Push a prepared picture to the player screen with a single click.</p>
+        <p>Picture hints are organised into <b>Phases</b>; each phase contains <b>Riddles</b>; each riddle contains one or more <b>images</b>. (This library is prepared in advance in Manager Mode.)</p>
         <ol class="steps">
           <li>Click a <b>Phase</b> to expand it, then click a <b>Riddle</b> to reveal its images.</li>
-          <li><b>Click the image</b> you want - it appears on the player screen immediately, and the chosen thumbnail is highlighted.</li>
+          <li><b>Click an image</b> - it appears on the player screen immediately, and the chosen thumbnail is highlighted.</li>
           <li>Click a different image to switch; the new one replaces the old.</li>
         </ol>
-        <div class="tip">Picture hints are limited to <b>still images</b> (PNG, JPG, GIF, WEBP, BMP). Video hints are not supported.</div>
-      </section>
-
-      <section class="card" id="clearing">
-        <h2><span class="num">7</span>Clearing Hints</h2>
+        <h3>Removing pictures</h3>
         <table>
           <tr><th>Button</th><th>What it does</th></tr>
-          <tr><td><span class="btn">Remove picture</span></td><td>Takes the current image hint off the player screen (text is left alone).</td></tr>
-          <tr><td><span class="btn warn">Remove all</span></td><td>Clears both the text hint and the image hint for that room at once.</td></tr>
+          <tr><td><span class="btn">Remove picture</span></td><td>Takes the current image off the player screen (any text hint stays).</td></tr>
+          <tr><td><span class="btn warn">Remove all</span></td><td>Clears both the text hint and the image for that room at once.</td></tr>
         </table>
+        <div class="tip"><b>Images only.</b> Picture hints accept still images - PNG, JPG, GIF, WEBP and BMP. There is no video hint. If you need motion, an <b>animated GIF</b> works as a picture hint and is the closest option.</div>
       </section>
 
       <section class="card" id="manager">
-        <h2><span class="num">8</span>Manager Mode</h2>
-        <p class="lead">The <span class="btn">&#128274; Manager Mode</span> button opens the password-protected settings area.</p>
-        <p class="note-lock">Everything behind that password - building the picture-hint library, backgrounds, sounds, colours, number styles, displays, default reset time and more - is <b>intentionally left out of this handbook</b>, which covers only what you use during a normal game.</p>
+        <h2><span class="num">9</span>Manager Mode</h2>
+        <p class="lead">The <span class="btn">&#128274; Manager Mode</span> button opens a password-protected area for one-time setup.</p>
+        <p class="note-lock">Everything behind that password is <b>intentionally not covered in this handbook</b> - this guide is only about the controls you use while running a game.</p>
       </section>
 
       <section class="card" id="tips">
-        <h2><span class="num">9</span>Tips</h2>
+        <h2><span class="num">10</span>Tips</h2>
         <ul>
-          <li>Set your countdown <b>before</b> the game starts, then just press <span class="btn go">Start</span> when players enter.</li>
-          <li>Expand the right Phase/Riddle ahead of time so the picture you need is one click away.</li>
-          <li>Minimize to the <b>icon button</b> between games to free your screen; the timer keeps running.</li>
+          <li>Set the time <b>before</b> the game starts, then just press <span class="btn go">Start</span> when players enter.</li>
+          <li>Expand the right Phase and Riddle ahead of time so the picture you need is one click away.</li>
+          <li>Minimize to the <b>icon button</b> between games to free your screen; the clock keeps running.</li>
           <li>The Control window <b>stays on top</b> - you never have to hunt for it behind other apps.</li>
         </ul>
       </section>
 
       <footer>
-        ER Timer Handbook - covers the non-password features only.<br>
+        ER Timer Handbook - covers the non-password controls only.<br>
         Tip: press <kbd>Ctrl</kbd>+<kbd>P</kbd> to save this handbook as a PDF.
       </footer>
     </main>
