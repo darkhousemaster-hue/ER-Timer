@@ -1006,6 +1006,7 @@ function buildRiddleEl(riddle, phase, roomIndex) {
     wrap.dataset.idx = idx
 
     const img = document.createElement('img')
+    img.loading = 'lazy'; img.decoding = 'async'
     img.className = 'hint-thumb'
     img.src = src
     img.dataset.idx = idx

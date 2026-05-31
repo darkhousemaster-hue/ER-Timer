@@ -294,3 +294,36 @@ details[open] > summary::before { content: '▼'; }
   font-family: 'Segoe UI', system-ui, sans-serif;
 }
 .tip:hover::after { opacity: 1; }
+
+
+/* === perf: off-screen culling (added) === */
+/* Skip layout/paint/decoding for image cells & cards that are scrolled
+   off-screen. contain-intrinsic-size reserves space so scrollbars and
+   positions stay stable before content is rendered. This is the main
+   fix for lag with many tabs open and many images showing at once. */
+.img-cell,
+.img-pick-cell,
+.thumb-cell,
+.hint-card,
+.tn-style-card {
+  content-visibility: auto;
+  contain-intrinsic-size: 120px 120px;
+}
+
+/* Hint/preset rows are short; reserve a row-height estimate. */
+.hint-row,
+.preset-chip {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 44px;
+}
+
+/* Thumbnails: never let a huge source repaint more than its box, and
+   keep GPU memory down by letting the browser pick fast scaling. */
+.img-thumb,
+.hint-thumb,
+.tn-thumb,
+.video-thumb,
+.thumb-img {
+  contain: content;
+}
+/* === end perf block === */
