@@ -230,22 +230,15 @@ function secondsToDigits(s) {
           String(Math.floor(ss/10)), String(ss%10)]
 }
 
-// Track active audio so we can stop them on reset
-let countdownAudio = null
-let gameoverAudio  = null
-
-function stopCountdownAudio() {
-  if (countdownAudio) {
-    try { countdownAudio.pause(); countdownAudio.currentTime = 0 } catch {}
-    countdownAudio = null
-  }
+// All sounds (hint/countdown/gameover) now play inside the timer windows so
+// they follow each room's selected output device(s) via setSinkId there.
+// Stopping = telling every active room to halt that sound tag.
+function stopSoundTag(tag) {
+  const rooms = state.twoRooms ? [0, 1] : [0]
+  rooms.forEach(r => window.api.send('stop-sound', { roomIndex: r, tag }))
 }
-function stopGameoverAudio() {
-  if (gameoverAudio) {
-    try { gameoverAudio.pause(); gameoverAudio.currentTime = 0 } catch {}
-    gameoverAudio = null
-  }
-}
+function stopCountdownAudio() { stopSoundTag('countdown') }
+function stopGameoverAudio()  { stopSoundTag('gameover') }
 function stopAllSounds() {
   stopCountdownAudio()
   stopGameoverAudio()
@@ -284,8 +277,7 @@ window.api.on('timer-tick-control', data => {
   const secs = data.secs
   if (trigger > 0 && secs < trigger && secs >= 0 && state.settings.countdownSound) {
     stopCountdownAudio()
-    countdownAudio = new Audio('file:///' + resolveAssetPath(state.settings.countdownSound).replace(/\\/g, '/'))
-    countdownAudio.play().catch(() => {})
+    playSound(state.settings.countdownSound, -1, 'countdown')
   }
   scheduleSave()
 })
@@ -294,10 +286,8 @@ window.api.on('timer-tick-control', data => {
 window.api.on('timer-gameover', () => {
   state.timerRunning = false
   stopCountdownAudio()
-  if (state.settings.gameoverSound) {
-    gameoverAudio = new Audio('file:///' + resolveAssetPath(state.settings.gameoverSound).replace(/\\/g, '/'))
-    gameoverAudio.play().catch(() => {})
-  }
+  if (state.settings.gameoverSound)
+    playSound(state.settings.gameoverSound, -1, 'gameover')
   scheduleSave()
 })
 
@@ -1445,23 +1435,25 @@ async function populateDisplayPickers() {
   })
 }
 
-// Send sound to a specific room's timer window with its assigned device
-function playSound(filePath, roomIndex = -1) {
+// A room's stored selections, normalised to {deviceId,label} objects.
+// Handles both the legacy format (raw deviceId strings) and the new one.
+function roomAudioSelections(roomIndex) {
+  const arr = (state.settings.audioDeviceIds || [[], []])[roomIndex] || []
+  return arr.map(s => typeof s === 'string' ? { deviceId: s, label: '' } : s)
+            .filter(s => s && s.deviceId)
+}
+
+// Send sound to a room's timer window with ALL of its assigned devices.
+// tag groups sounds (hint/countdown/gameover) so stop-sound can halt them.
+function playSound(filePath, roomIndex = -1, tag = 'hint') {
   if (!filePath) return
   filePath = resolveAssetPath(filePath)
-  if (roomIndex >= 0) {
-    // Route through the timer window so it uses the room's audio device
-    const deviceIds = state.settings.audioDeviceIds[roomIndex] || []
-    const deviceId  = deviceIds[0] || ''
-    window.api.send('play-sound', { roomIndex, filePath, deviceId })
-  } else {
-    // Broadcast to all active rooms (e.g. game-over, countdown)
-    const rooms = state.twoRooms ? [0, 1] : [0]
-    rooms.forEach(r => {
-      const deviceIds = state.settings.audioDeviceIds[r] || []
-      window.api.send('play-sound', { roomIndex: r, filePath, deviceId: deviceIds[0] || '' })
+  const rooms = roomIndex >= 0 ? [roomIndex] : (state.twoRooms ? [0, 1] : [0])
+  rooms.forEach(r => {
+    window.api.send('play-sound', {
+      roomIndex: r, filePath, tag, deviceIds: roomAudioSelections(r)
     })
-  }
+  })
 }
 
 // ════════════════════════════════════════════════════════
@@ -1714,4 +1706,18 @@ window.api.on('updater-status', msg => {
     bar.style.display = 'none'
   }
 })
+
+// A timer window failed to route a sound to its selected device.
+// Policy: stay silent on that device and warn the GM — never fall back
+// to an output the GM did not select.
+let audioErrHideTimer = null
+window.api.on('audio-error', d => {
+  const bar = document.getElementById('update-status')
+  if (!bar) return
+  bar.textContent = `⚠ Sound could not play on "${d.label}" (Room ${d.roomIndex + 1}) — device not connected`
+  bar.style.display = 'block'
+  clearTimeout(audioErrHideTimer)
+  audioErrHideTimer = setTimeout(() => { bar.style.display = 'none' }, 6000)
+})
+
 boot()

@@ -9,7 +9,7 @@ contextBridge.exposeInMainWorld('api', {
       'save-layout', 'layout-mode-done', 'set-layout-mode',
       'push-styles-to-room', 'check-for-updates',
       'timer-start', 'timer-pause', 'timer-reset',
-      'restore-control'
+      'restore-control', 'stop-sound', 'audio-error'
     ]
     if (allowed.includes(channel)) ipcRenderer.send(channel, data)
   },
@@ -29,7 +29,8 @@ contextBridge.exposeInMainWorld('api', {
       'apply-style', 'init-room', 'play-sound',
       'sync-styles-to-win2', 'sync-styles-to-room', 'set-layout-mode',
       'save-layout', 'layout-mode-done', 'updater-status',
-      'timer-tick-control', 'timer-gameover'
+      'timer-tick-control', 'timer-gameover',
+      'stop-sound', 'audio-error', 'displays-changed'
     ]
     if (allowed.includes(channel))
       ipcRenderer.on(channel, (event, data) => cb(data))

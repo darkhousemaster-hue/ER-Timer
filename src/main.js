@@ -79,8 +79,10 @@ function createMirrorWindow(roomIndex, display) {
   win.setAutoHideMenuBar(true)
   win.loadFile(path.join(__dirname, 'windows', 'timer.html'))
   win.webContents.on('did-finish-load', () => {
-    // Init with roomIndex so hints are filtered correctly
-    win.webContents.send('init-room', { roomIndex })
+    // Init with roomIndex so hints are filtered correctly.
+    // mirror:true → this window renders video only and never plays audio
+    // (otherwise every mirror would double the room's sound).
+    win.webContents.send('init-room', { roomIndex, mirror: true })
     // Push current styles from control window
     controlWin?.webContents.send('sync-styles-to-room', { roomIndex })
   })
@@ -389,6 +391,9 @@ ipcMain.on('timer-reset', (e, { seconds }) => {
 ipcMain.on('timer-tick',  (e, data) => sendToAll('timer-tick', data))
 ipcMain.on('hint-text',  (e, data) => sendToRoom(data.roomIndex, 'hint-text',  data))
 ipcMain.on('play-sound', (e, data) => sendToRoom(data.roomIndex, 'play-sound', data))
+ipcMain.on('stop-sound', (e, data) => sendToRoom(data.roomIndex, 'stop-sound', data))
+// Timer window failed to route a sound to its selected device — warn the GM
+ipcMain.on('audio-error', (e, data) => controlWin?.webContents.send('audio-error', data))
 ipcMain.on('hint-image', (e, data) => sendToRoom(data.roomIndex, 'hint-image', data))
 ipcMain.on('hint-clear', (e, data) => sendToRoom(data.roomIndex, 'hint-clear', data))
 ipcMain.on('apply-style', (e, data) => sendToAll('apply-style', data))

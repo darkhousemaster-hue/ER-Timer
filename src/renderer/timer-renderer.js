@@ -1,4 +1,8 @@
 let myRoomIndex = 0
+let isMirror    = false
+// Active audio elements grouped by sound tag (hint/countdown/gameover)
+// so stop-sound can halt exactly the right ones.
+const activeAudio = { hint: [], countdown: [], gameover: [] }
 let digits      = ['6','0','0','0']
 let imageMode   = false
 let imageCache  = {}
@@ -440,7 +444,10 @@ document.getElementById('btn-layout-centre').onclick = () => {
 }
 
 // ── IPC ───────────────────────────────────────────────
-window.api.on('init-room', data => { myRoomIndex = data.roomIndex })
+window.api.on('init-room', data => {
+  myRoomIndex = data.roomIndex
+  isMirror    = !!data.mirror
+})
 
 window.api.on('timer-tick', data => { digits = data.digits; renderAll() })
 
@@ -524,16 +531,57 @@ window.api.on('set-layout-mode', data => {
   }
 })
 
+// Track an element under its tag and drop it again once it finishes
+function trackAudio(a, tag) {
+  if (!activeAudio[tag]) activeAudio[tag] = []
+  activeAudio[tag].push(a)
+  a.addEventListener('ended', () => {
+    const i = activeAudio[tag].indexOf(a)
+    if (i >= 0) activeAudio[tag].splice(i, 1)
+  })
+}
+
 window.api.on('play-sound', async data => {
-  if (!data.filePath) return
-  try {
-    const audio = new Audio('file:///' + data.filePath.replace(/\\/g, '/'))
-    if (data.deviceId && audio.setSinkId) await audio.setSinkId(data.deviceId)
-    audio.play().catch(() => {})
-  } catch {
-    const audio = new Audio('file:///' + data.filePath.replace(/\\/g, '/'))
-    audio.play().catch(() => {})
+  // Mirrors render video only — the primary room window owns the audio.
+  if (isMirror || !data.filePath) return
+  const url = 'file:///' + data.filePath.replace(/\\/g, '/')
+  const tag = data.tag || 'hint'
+  // New format: deviceIds = [{deviceId,label}, ...]; legacy: single deviceId string
+  const sels = Array.isArray(data.deviceIds) && data.deviceIds.length
+    ? data.deviceIds
+    : (data.deviceId ? [{ deviceId: data.deviceId, label: '' }] : [])
+
+  if (!sels.length) {
+    // No device selected for this room — play on the Windows default
+    const a = new Audio(url)
+    a.play().catch(() => {})
+    trackAudio(a, tag)
+    return
   }
+  // One Audio element per selected device: all selected outputs play simultaneously
+  for (const sel of sels) {
+    const a = new Audio(url)
+    try {
+      if (sel.deviceId && a.setSinkId) await a.setSinkId(sel.deviceId)
+      a.play().catch(() => {})
+      trackAudio(a, tag)
+    } catch {
+      // Selected device unavailable: stay silent on it and warn the GM —
+      // never fall back to a device the GM did not select.
+      window.api.send('audio-error', {
+        roomIndex: myRoomIndex, tag,
+        label: sel.label || 'Output ' + String(sel.deviceId).slice(0, 6)
+      })
+    }
+  }
+})
+
+window.api.on('stop-sound', data => {
+  const tags = data && data.tag ? [data.tag] : Object.keys(activeAudio)
+  tags.forEach(t => {
+    (activeAudio[t] || []).forEach(a => { try { a.pause(); a.currentTime = 0 } catch {} })
+    activeAudio[t] = []
+  })
 })
 
 // Clear the bare ':' text node that comes from the HTML
