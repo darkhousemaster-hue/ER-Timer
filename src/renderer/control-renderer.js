@@ -173,8 +173,10 @@ async function boot() {
   renderPhases(1)
   applyAllSettings()
   refreshPresetList()
+  await unlockAudioLabels()
   populateAudioDevices()
   populateDisplayPickers()
+  initDeviceHotplug()
   validateNumberFolders()
   setTimeout(() => {
     window.api.send('timer-tick', { digits: state.digits })
@@ -1366,34 +1368,98 @@ document.getElementById('inp-hint-timeout').oninput = e => {
   scheduleSave()
 }
 
+// One-time: grab (and immediately release) an audio-capture stream so
+// Chromium unmasks real output-device labels in enumerateDevices.
+// On machines without a microphone this fails harmlessly — labels then
+// stay masked and we fall back to short-id names, same as before.
+async function unlockAudioLabels() {
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({ audio: true })
+    s.getTracks().forEach(t => t.stop())
+  } catch { /* no capture device — non-fatal */ }
+}
+
+// Refresh pickers automatically when devices are plugged in / removed
+// (e.g. a DisplayLink adapter exposing HDMI audio as a USB endpoint).
+function initDeviceHotplug() {
+  let t = null
+  const refresh = () => {
+    clearTimeout(t)
+    t = setTimeout(() => { populateAudioDevices(); populateDisplayPickers() }, 300)
+  }
+  if (navigator.mediaDevices.addEventListener)
+    navigator.mediaDevices.addEventListener('devicechange', refresh)
+  window.api.on('displays-changed', refresh)
+  const btn = document.getElementById('btn-refresh-devices')
+  if (btn) btn.onclick = () => { populateAudioDevices(); populateDisplayPickers() }
+}
+
+// Selections are stored as {deviceId, label} so they survive replug/reboot:
+// resolved by deviceId first, then self-healed by label match.
+// Legacy entries (raw deviceId strings) are migrated in place.
+function normalizeAudioSelections() {
+  if (!Array.isArray(state.settings.audioDeviceIds))
+    state.settings.audioDeviceIds = [[], []]
+  ;[0, 1].forEach(r => {
+    const arr = state.settings.audioDeviceIds[r]
+    state.settings.audioDeviceIds[r] = (Array.isArray(arr) ? arr : [])
+      .map(s => typeof s === 'string' ? { deviceId: s, label: '' } : s)
+      .filter(s => s && s.deviceId)
+  })
+}
+
 async function populateAudioDevices() {
+  normalizeAudioSelections()
   const devices = await navigator.mediaDevices.enumerateDevices()
   const outputs = devices.filter(d => d.kind === 'audiooutput')
-
-  // Ensure audioDeviceIds is always a 2-element array of arrays
-  if (!Array.isArray(state.settings.audioDeviceIds[0]))
-    state.settings.audioDeviceIds = [[], []]
 
   ;[0, 1].forEach(roomIdx => {
     const list = document.getElementById('audio-device-list-' + roomIdx)
     if (!list) return
+    const sels = state.settings.audioDeviceIds[roomIdx]
+
+    // Self-heal: stored id no longer exists but a device with the same
+    // label does (Chromium re-issued the id) → adopt the new id.
+    let healed = false
+    sels.forEach(sel => {
+      if (sel.label && !outputs.some(d => d.deviceId === sel.deviceId)) {
+        const byLabel = outputs.find(d => d.label === sel.label)
+        if (byLabel) { sel.deviceId = byLabel.deviceId; healed = true }
+      }
+    })
+    if (healed) scheduleSave()
+
     list.innerHTML = ''
-    outputs.forEach(dev => {
+    const addRow = (deviceId, label, checked, missing) => {
       const row = document.createElement('div')
       row.className = 'audio-device-item'
       const chk = document.createElement('input')
-      chk.type = 'checkbox'; chk.value = dev.deviceId
-      chk.checked = (state.settings.audioDeviceIds[roomIdx] || []).includes(dev.deviceId)
+      chk.type = 'checkbox'; chk.value = deviceId
+      chk.dataset.label = label
+      chk.checked = checked
       chk.onchange = () => {
         state.settings.audioDeviceIds[roomIdx] =
-          [...list.querySelectorAll('input:checked')].map(i => i.value)
+          [...list.querySelectorAll('input:checked')]
+            .map(i => ({ deviceId: i.value, label: i.dataset.label || '' }))
         scheduleSave()
       }
       const lbl = document.createElement('label')
-      lbl.textContent = dev.label || 'Output ' + dev.deviceId.slice(0, 6)
+      lbl.textContent = (label || 'Output ' + deviceId.slice(0, 6)) +
+                        (missing ? ' (not connected)' : '')
+      if (missing) lbl.style.color = '#c44'
       row.appendChild(chk); row.appendChild(lbl)
       list.appendChild(row)
+    }
+
+    outputs.forEach(dev => {
+      const sel = sels.find(s => s.deviceId === dev.deviceId)
+      if (sel && dev.label) sel.label = dev.label // keep stored label fresh
+      addRow(dev.deviceId, dev.label, !!sel, false)
     })
+    // Selections whose device is currently absent stay visible (checked,
+    // marked red) so an unplugged device never silently loses its selection.
+    sels.filter(s => !outputs.some(d => d.deviceId === s.deviceId))
+        .forEach(s => addRow(s.deviceId, s.label, true, true))
   })
 }
 
@@ -1405,20 +1471,29 @@ async function populateDisplayPickers() {
   ;[0, 1].forEach(roomIdx => {
     const list = document.getElementById('display-device-list-' + roomIdx)
     if (!list) return
+
+    // Selections are stored as stable display IDs; array indices shift when
+    // a display is hotplugged. Migrate legacy index entries to IDs in place.
+    const sel = (state.settings.displayMirrors[roomIdx] || []).map(v => {
+      if (displays.some(d => d.id === v)) return v          // already an id
+      return displays[v] ? displays[v].id : v               // legacy index
+    })
+    state.settings.displayMirrors[roomIdx] = sel
+
     list.innerHTML = ''
-    const selected = state.settings.displayMirrors[roomIdx] || []
     displays.forEach(d => {
       const row = document.createElement('div')
       row.className = 'audio-device-item'
       const chk = document.createElement('input')
       chk.type = 'checkbox'
-      chk.value = d.index
-      chk.checked = selected.includes(d.index)
+      chk.value = d.id
+      chk.checked = sel.includes(d.id)
       chk.onchange = () => {
-        state.settings.displayMirrors[roomIdx] =
-          [...list.querySelectorAll('input:checked')].map(i => parseInt(i.value))
-        // Move the window to the first selected display
-        const indices = state.settings.displayMirrors[roomIdx]
+        const ids = [...list.querySelectorAll('input:checked')].map(i => parseInt(i.value))
+        state.settings.displayMirrors[roomIdx] = ids
+        // Main process places windows by array index — translate at send time
+        const indices = ids.map(id => displays.findIndex(dd => dd.id === id))
+                           .filter(i => i >= 0)
         if (indices.length) {
           window.api.send('set-display-mirrors', {
             roomIndex: roomIdx, displayIndices: indices

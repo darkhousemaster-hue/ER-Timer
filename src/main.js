@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, dialog, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, screen, dialog, shell, session } = require('electron')
 const { autoUpdater } = require('electron-updater')
 const path = require('path')
 const fs   = require('fs')
@@ -137,6 +137,18 @@ app.whenReady().then(() => {
     openTimerWin2(wb.timer2, wb.timer2Fullscreen)
   }
 
+  // Grant our own windows audio-capture permission so Chromium reveals real
+  // output-device labels (e.g. DisplayLink/Wavlink HDMI audio) in
+  // enumerateDevices instead of masked IDs. Everything else stays denied.
+  session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => {
+    cb(permission === 'media')
+  })
+
+  // Display hotplug (USB/DisplayLink adapters come and go) — tell the
+  // control window so its display pickers stay current.
+  ;['display-added', 'display-removed', 'display-metrics-changed'].forEach(ev =>
+    screen.on(ev, () => controlWin?.webContents.send('displays-changed')))
+
   createControlWindow()
 
   // Restore mirror windows after a short delay (so control window is ready to sync styles)
@@ -145,8 +157,10 @@ app.whenReady().then(() => {
       ;[0, 1].forEach(roomIdx => {
         const indices = saved.settings.displayMirrors[roomIdx] || []
         // Skip index 0 (that's the main window), open mirrors for indices 1+
-        indices.slice(1).forEach(di => {
-          const display = displays[di] || displays[0]
+        indices.slice(1).forEach(entry => {
+          // entry may be a stable display id (new format) or a legacy array index
+          let display = displays.find(d => d.id === entry)
+          if (!display) display = displays[entry] || displays[0]
           if (roomIdx === 1 && (!timerWin2 || timerWin2.isDestroyed())) return
           const win = createMirrorWindow(roomIdx, display)
           mirrorWins[roomIdx].push(win)
