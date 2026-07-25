@@ -15,12 +15,16 @@ const cv    = document.getElementById('paint')
 const ctx   = cv.getContext('2d')
 const btnSend = document.getElementById('btn-send')
 
-// Longest edge of the exported image — keeps annotated PNGs a sane size
-const MAX_EDGE = 2200
+// The drawing surface is deliberately not tied to the picture's own size.
+// Small pictures get a supersampled surface so arrows, circles and text stay
+// smooth once the player screen blows them up; huge ones are capped so the
+// exported PNG stays a sane size.
+const MIN_EDGE = 1600
+const MAX_EDGE = 2400
 
-// Stroke widths are picked in UI units but drawn in image pixels, so a
-// stroke looks the same whether the picture is 800px or 4000px wide.
-function scale() { return Math.max(1, cv.width / 1000) }
+// Stroke widths are picked in UI units but drawn in surface pixels. Basing
+// this on the long edge keeps a line equally thick on portrait and landscape.
+function scale() { return Math.max(cv.width, cv.height) / 1400 }
 
 // ── Init ──────────────────────────────────────────────
 window.api.on('annotate-init', data => {
@@ -29,9 +33,12 @@ window.api.on('annotate-init', data => {
   if (bg) stage.style.backgroundImage = `url('file:///${bg.replace(/\\/g, '/')}')`
 
   base.onload = () => {
-    let w = base.naturalWidth || 1200
-    let h = base.naturalHeight || 800
-    const f = Math.min(1, MAX_EDGE / Math.max(w, h))
+    const w = base.naturalWidth  || 1200
+    const h = base.naturalHeight || 800
+    const long = Math.max(w, h)
+    let f = 1
+    if (long < MIN_EDGE)      f = MIN_EDGE / long   // supersample small pictures
+    else if (long > MAX_EDGE) f = MAX_EDGE / long   // cap very large ones
     cv.width  = Math.round(w * f)
     cv.height = Math.round(h * f)
     fitFrame()
@@ -57,6 +64,7 @@ function fitFrame() {
   const r = Math.min(availW / base.naturalWidth, availH / base.naturalHeight)
   base.style.width  = Math.max(1, Math.round(base.naturalWidth  * r)) + 'px'
   base.style.height = Math.max(1, Math.round(base.naturalHeight * r)) + 'px'
+  placeTextInput()   // keep an open text box on its spot
 }
 window.addEventListener('resize', fitFrame)
 
@@ -86,8 +94,70 @@ function constrain(s, shift) {
   return s
 }
 
+// ── Text tool ─────────────────────────────────────────
+// Typing happens in a real input sitting on the picture, so the GM sees
+// where the words land before committing them to the drawing.
+let textInput = null
+
+function textFontPx(uiw) { return Math.max(10, uiw * 5 * scale()) }
+function displayScale()  { return cv.getBoundingClientRect().width / cv.width }
+
+function placeTextInput() {
+  if (!textInput) return
+  const ds = displayScale()
+  textInput.style.left = (5 + textInput._ix * ds) + 'px'
+  textInput.style.top  = (5 + textInput._iy * ds) + 'px'
+  textInput.style.fontSize = Math.max(11, textFontPx(textInput._w) * ds) + 'px'
+}
+
+function commitText() {
+  if (!textInput) return
+  const t = textInput
+  textInput = null                       // clear first: removing fires blur
+  const value = t.value.trim()
+  const shape = { type: 'text', color: t._c, width: t._w, x: t._ix, y: t._iy, text: value }
+  t.remove()
+  if (value) { shapes.push(shape); redraw() }
+}
+
+function cancelText() {
+  if (!textInput) return
+  const t = textInput
+  textInput = null
+  t.remove()
+}
+
+function beginTextEntry(p) {
+  commitText()                            // finish any text already open
+  const inp = document.createElement('input')
+  inp.type = 'text'
+  inp.id = 'text-entry'
+  inp.placeholder = 'Type, then Enter'
+  inp._ix = p.x; inp._iy = p.y; inp._c = color; inp._w = uiWidth
+  inp.style.cssText = [
+    'position:absolute', 'z-index:5', 'min-width:140px',
+    'padding:0 4px', 'outline:none',
+    'font-family:"Segoe UI",Arial,sans-serif', 'font-weight:700',
+    `color:${color}`,
+    'background:rgba(0,0,0,0.4)',
+    'border:1px dashed rgba(255,255,255,0.85)', 'border-radius:4px',
+  ].join(';')
+  // Keep keystrokes away from the editor's own shortcuts
+  inp.addEventListener('keydown', e => {
+    e.stopPropagation()
+    if (e.key === 'Enter')  commitText()
+    if (e.key === 'Escape') cancelText()
+  })
+  inp.addEventListener('blur', () => commitText())
+  document.getElementById('frame').appendChild(inp)
+  textInput = inp            // must be set before placing/committing
+  placeTextInput()
+  setTimeout(() => inp.focus(), 0)
+}
+
 cv.addEventListener('pointerdown', e => {
   if (!init || e.button !== 0) return
+  if (tool === 'text') { beginTextEntry(pointFrom(e)); return }
   cv.setPointerCapture(e.pointerId)
   drawing = true
   const p = pointFrom(e)
@@ -130,6 +200,19 @@ function drawShape(s) {
   ctx.lineCap     = 'round'
   ctx.lineJoin    = 'round'
 
+  if (s.type === 'text') {
+    const fs = textFontPx(s.width)
+    ctx.font = `700 ${fs}px "Segoe UI", Arial, sans-serif`
+    ctx.textBaseline = 'top'
+    ctx.miterLimit = 2
+    // Dark halo keeps any colour readable over a busy photo
+    ctx.strokeStyle = 'rgba(0,0,0,0.85)'
+    ctx.lineWidth   = Math.max(2, fs / 7)
+    ctx.strokeText(s.text, s.x, s.y)
+    ctx.fillStyle = s.color
+    ctx.fillText(s.text, s.x, s.y)
+    return
+  }
   if (s.type === 'pen') {
     if (s.pts.length < 2) return
     ctx.beginPath()
@@ -199,13 +282,14 @@ colorInput.oninput = e => setColor(e.target.value, false)
 
 document.getElementById('width-input').oninput = e => { uiWidth = parseInt(e.target.value) }
 document.getElementById('btn-undo').onclick  = () => { shapes.pop(); redraw() }
-document.getElementById('btn-clear').onclick = () => { shapes = []; redraw() }
+document.getElementById('btn-clear').onclick = () => { cancelText(); shapes = []; redraw() }
 
 // ── Send / cancel ─────────────────────────────────────
 document.getElementById('btn-cancel').onclick = () => window.close()
 
 btnSend.onclick = async () => {
   if (!init) return
+  commitText()          // don't lose text still being typed
   btnSend.disabled = true
   try {
     // Flatten picture + drawings into one PNG
@@ -213,6 +297,8 @@ btnSend.onclick = async () => {
     out.width  = cv.width
     out.height = cv.height
     const o = out.getContext('2d')
+    o.imageSmoothingEnabled = true
+    o.imageSmoothingQuality = 'high'
     o.drawImage(base, 0, 0, out.width, out.height)
     o.drawImage(cv, 0, 0)
     const filePath = await window.api.invoke('save-annotated-image', out.toDataURL('image/png'))
@@ -229,7 +315,7 @@ btnSend.onclick = async () => {
 document.addEventListener('keydown', e => {
   if (e.ctrlKey && e.key.toLowerCase() === 'z') { e.preventDefault(); shapes.pop(); redraw(); return }
   if (e.key === 'Escape') { window.close(); return }
-  const keys = { p: 'pen', a: 'arrow', r: 'rect', o: 'ellipse' }
+  const keys = { p: 'pen', a: 'arrow', r: 'rect', o: 'ellipse', t: 'text' }
   const t = keys[e.key.toLowerCase()]
   if (t) document.querySelector(`.tool[data-tool="${t}"]`)?.click()
 })
