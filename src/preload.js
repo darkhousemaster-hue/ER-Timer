@@ -10,7 +10,7 @@ contextBridge.exposeInMainWorld('api', {
       'push-styles-to-room', 'check-for-updates',
       'timer-start', 'timer-pause', 'timer-reset',
       'restore-control', 'stop-sound', 'audio-error',
-      'open-annotate', 'annotate-send'
+      'open-annotate', 'annotate-send', 'reset-window-position'
     ]
     if (allowed.includes(channel)) ipcRenderer.send(channel, data)
   },

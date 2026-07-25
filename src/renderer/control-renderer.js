@@ -16,6 +16,9 @@ let state = {
   numberFolders: [],
   managerPassword: '',      // empty = not set yet
   roomNames: ['Room 1', 'Room 2'],
+  // Machine preference, deliberately outside `settings` so switching a
+  // style preset never changes where the control window opens.
+  rememberWindowPos: true,
   settings: {
     imageMode:       false,
     activeNumFolder: '',
@@ -144,6 +147,7 @@ async function boot() {
     if (!state.numberFolders) state.numberFolders = []
     if (!state.roomNames) state.roomNames = ['Room 1', 'Room 2']
     if (!('managerPassword' in state)) state.managerPassword = ''
+    if (!('rememberWindowPos' in state)) state.rememberWindowPos = true
     // Migrate old state where numberFolders was inside settings
     if (state.settings.numberFolders) {
       state.numberFolders = state.settings.numberFolders
@@ -167,6 +171,8 @@ async function boot() {
     const r = parseInt(chk.dataset.room)
     chk.checked = state.rooms[r].hintSoundOn !== false
   })
+  const chkWin = document.getElementById('chk-remember-window')
+  if (chkWin) chkWin.checked = state.rememberWindowPos !== false
   renderDigits()
   renderResetDigits()
   renderPhases(0)
@@ -1513,6 +1519,24 @@ async function populateDisplayPickers() {
       list.appendChild(row)
     })
   })
+}
+
+// ════════════════════════════════════════════════════════
+// CONTROL WINDOW POSITION
+// ════════════════════════════════════════════════════════
+// Bounds are captured every few seconds by saveWithBounds(); this flag only
+// decides whether the main process uses them at the next launch.
+const chkRememberWin = document.getElementById('chk-remember-window')
+if (chkRememberWin) chkRememberWin.onchange = e => {
+  state.rememberWindowPos = e.target.checked
+  scheduleSave()
+}
+
+const btnResetWinPos = document.getElementById('btn-reset-window-pos')
+if (btnResetWinPos) btnResetWinPos.onclick = () => {
+  window.api.send('reset-window-position')
+  // Persist the new default placement instead of waiting for the next tick
+  setTimeout(saveWithBounds, 400)
 }
 
 // ════════════════════════════════════════════════════════

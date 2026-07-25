@@ -149,7 +149,11 @@ app.whenReady().then(() => {
   ;['display-added', 'display-removed', 'display-metrics-changed'].forEach(ev =>
     screen.on(ev, () => controlWin?.webContents.send('displays-changed')))
 
-  createControlWindow()
+  // Reopen the control window where the user left it (unless switched off)
+  const rememberPos = saved?.rememberWindowPos !== false
+  createControlWindow(
+    rememberPos ? wb.control : null,
+    rememberPos ? wb.controlMaximized : false)
 
   // Restore mirror windows after a short delay (so control window is ready to sync styles)
   setTimeout(() => {
@@ -208,14 +212,39 @@ app.whenReady().then(() => {
 // Close all windows when control window closes
 app.on('window-all-closed', () => app.quit())
 
-function createControlWindow() {
-  const preload = path.join(__dirname, 'preload.js')
+// Where the control window sits when nothing is remembered yet
+function defaultControlBounds() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize
-  controlWin = new BrowserWindow({
+  return {
     width:  Math.floor(width  * 0.34),
     height: Math.floor(height * 0.88),
     x: Math.floor(width * 0.01),
     y: Math.floor(height * 0.06),
+  }
+}
+
+// Saved bounds are only usable if enough of the window still lands on a
+// screen that exists — otherwise a since-removed monitor would strand it.
+function boundsOnSomeDisplay(b) {
+  if (!b || ![b.x, b.y, b.width, b.height].every(Number.isFinite)) return false
+  if (b.width < 200 || b.height < 150) return false
+  return screen.getAllDisplays().some(d => {
+    const wa = d.workArea
+    const ox = Math.min(b.x + b.width,  wa.x + wa.width)  - Math.max(b.x, wa.x)
+    const oy = Math.min(b.y + b.height, wa.y + wa.height) - Math.max(b.y, wa.y)
+    return ox > 120 && oy > 60
+  })
+}
+
+function createControlWindow(savedBounds, savedMaximized) {
+  const preload = path.join(__dirname, 'preload.js')
+  const useSaved = boundsOnSomeDisplay(savedBounds)
+  const bounds = useSaved ? savedBounds : defaultControlBounds()
+  controlWin = new BrowserWindow({
+    width:  bounds.width,
+    height: bounds.height,
+    x: bounds.x,
+    y: bounds.y,
     title: 'ER Timer — Control',
     icon: path.join(__dirname, '..', 'assets', 'icons', 'icon.png'),
     backgroundColor: '#f4f4f1',
@@ -224,6 +253,7 @@ function createControlWindow() {
     webPreferences: { nodeIntegration: false, contextIsolation: true, preload }
   })
   controlWin.setMenuBarVisibility(false)
+  if (useSaved && savedMaximized) controlWin.maximize()
   // Strongest level Electron exposes — keeps above other apps incl. most fullscreen windows.
   // Note: Electron resets the level whenever the window's visibility changes,
   // so we re-assert it on every show/restore via assertControlOnTop().
@@ -548,13 +578,33 @@ ipcMain.on('push-styles-to-room', (e, { roomIndex, data }) => {
   sendToRoom(roomIndex, 'apply-style', data)
 })
 
+// While minimized to the icon button the control window is hidden, so read
+// the bounds captured just before it was hidden. When maximized, remember the
+// size it had before, so un-maximizing later gives a sensible window back.
+function controlBoundsForSave() {
+  if (!controlWin || controlWin.isDestroyed()) return controlWinSavedBounds || null
+  if (!controlWin.isVisible() || controlWin.isMinimized())
+    return controlWinSavedBounds || null
+  return controlWin.isMaximized() ? controlWin.getNormalBounds() : controlWin.getBounds()
+}
+
 // Save window bounds for restoration on next launch
 ipcMain.handle('get-window-bounds', () => ({
   timer1:           timerWin1 && !timerWin1.isDestroyed() ? timerWin1.getBounds() : null,
   timer1Fullscreen: timerWin1?.isFullScreen() || false,
   timer2:           timerWin2 && !timerWin2.isDestroyed() ? timerWin2.getBounds() : null,
   timer2Fullscreen: timerWin2?.isFullScreen() || false,
+  control:          controlBoundsForSave(),
+  controlMaximized: (controlWin && !controlWin.isDestroyed() && controlWin.isMaximized()) || false,
 }))
+
+// Put the control window back to its default size and place
+ipcMain.on('reset-window-position', () => {
+  if (!controlWin || controlWin.isDestroyed()) return
+  if (controlWin.isMaximized()) controlWin.unmaximize()
+  controlWin.setBounds(defaultControlBounds())
+  assertControlOnTop()
+})
 
 ipcMain.handle('state-load',            ()      => loadState())
 ipcMain.handle('state-save',            (e, s)  => { saveState(s); return true })
