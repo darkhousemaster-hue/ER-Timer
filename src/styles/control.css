@@ -259,13 +259,15 @@ details[open] > summary::before { content: '▼'; }
   border-bottom: 1px solid #eee; margin-bottom: 6px;
 }
 
-/* Drop a picture here to open the drawing editor before sending */
+/* Drop a picture here to open the drawing editor before sending.
+   Fixed width (it never needs to stretch), roughly half its old length. */
 .annotate-drop {
-  flex: 1; min-width: 0;
-  padding: 5px 10px; border: 1.5px dashed #c9c9c2; border-radius: 7px;
+  flex: 0 1 145px; min-width: 0;
+  min-height: 60px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 4px 8px; border: 1.5px dashed #c9c9c2; border-radius: 7px;
   background: #fbfbf9; color: #999;
-  font-size: 11px; text-align: center; white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis;
+  font-size: 11px; line-height: 1.3; text-align: center;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 .annotate-drop.drag-over {

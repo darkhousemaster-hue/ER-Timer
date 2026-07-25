@@ -363,11 +363,22 @@ function openAnnotateWindow({ roomIndex, imagePath, style }) {
 
   if (annotateWin && !annotateWin.isDestroyed()) annotateWin.close()
 
+  // Always open on whichever screen holds the control window, so the editor
+  // can never appear on a player's timer screen.
+  const host = controlWin && !controlWin.isDestroyed()
+    ? screen.getDisplayMatching(controlWin.getBounds())
+    : screen.getPrimaryDisplay()
+  const wa = host.workArea
+  const winW = Math.min(1280, Math.floor(wa.width  * 0.82))
+  const winH = Math.min(860,  Math.floor(wa.height * 0.88))
+
   const preload = path.join(__dirname, 'preload.js')
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize
   annotateWin = new BrowserWindow({
-    width:  Math.min(1280, Math.floor(width  * 0.72)),
-    height: Math.min(860,  Math.floor(height * 0.86)),
+    x: wa.x + Math.floor((wa.width  - winW) / 2),
+    y: wa.y + Math.floor((wa.height - winH) / 2),
+    width:  winW,
+    height: winH,
+    minWidth: 640, minHeight: 480,
     title: `ER Timer — Draw on hint (Room ${roomIndex + 1})`,
     icon: path.join(__dirname, '..', 'assets', 'icons', 'icon.png'),
     backgroundColor: '#14141c',
