@@ -22,7 +22,9 @@ body {
   width: 36px; height: 32px; border-radius: 7px; cursor: pointer;
   background: #2a2a3a; color: #e8e8f0; border: 1px solid #3a3a50;
   font-size: 16px; line-height: 1; font-family: inherit;
+  display: flex; align-items: center; justify-content: center;
 }
+.tool svg { display: block; }
 .tool:hover { background: #34344a; }
 .tool.active { background: #0F6E56; border-color: #0F6E56; color: #fff; }
 

@@ -8,6 +8,8 @@ let tool      = 'pen'
 let color     = '#ff3b30'
 let uiWidth   = 6
 let drawing   = false
+let selected  = -1         // index into shapes, for the move/edit tool
+let moving    = null       // { i, lastX, lastY } while dragging a shape
 
 const stage = document.getElementById('stage')
 const base  = document.getElementById('base')
@@ -94,6 +96,61 @@ function constrain(s, shift) {
   return s
 }
 
+// ── Selecting and moving ──────────────────────────────
+function textMetrics(s) {
+  const fs = textFontPx(s.width)
+  ctx.font = `700 ${fs}px "Segoe UI", Arial, sans-serif`
+  return { w: ctx.measureText(s.text || '').width, h: fs * 1.25 }
+}
+
+function shapeBounds(s) {
+  if (s.type === 'text') {
+    const m = textMetrics(s)
+    return { x1: s.x, y1: s.y, x2: s.x + m.w, y2: s.y + m.h }
+  }
+  if (s.type === 'pen') {
+    const xs = s.pts.map(p => p.x), ys = s.pts.map(p => p.y)
+    return { x1: Math.min(...xs), y1: Math.min(...ys),
+             x2: Math.max(...xs), y2: Math.max(...ys) }
+  }
+  return { x1: Math.min(s.x1, s.x2), y1: Math.min(s.y1, s.y2),
+           x2: Math.max(s.x1, s.x2), y2: Math.max(s.y1, s.y2) }
+}
+
+// Topmost shape under the pointer, or -1
+function hitTest(p) {
+  for (let i = shapes.length - 1; i >= 0; i--) {
+    const b = shapeBounds(shapes[i])
+    const pad = Math.max(10 * scale(), (shapes[i].width || 4) * scale())
+    if (p.x >= b.x1 - pad && p.x <= b.x2 + pad &&
+        p.y >= b.y1 - pad && p.y <= b.y2 + pad) return i
+  }
+  return -1
+}
+
+function translateShape(s, dx, dy) {
+  if (s.type === 'pen')      s.pts.forEach(pt => { pt.x += dx; pt.y += dy })
+  else if (s.type === 'text'){ s.x += dx; s.y += dy }
+  else { s.x1 += dx; s.y1 += dy; s.x2 += dx; s.y2 += dy }
+}
+
+// Dashed marquee around the selected shape (never part of the export)
+function drawSelection() {
+  if (selected < 0 || selected >= shapes.length) return
+  const b = shapeBounds(shapes[selected])
+  const pad = 6 * scale()
+  const x = b.x1 - pad, y = b.y1 - pad
+  const w = (b.x2 - b.x1) + pad * 2, h = (b.y2 - b.y1) + pad * 2
+  ctx.save()
+  ctx.lineWidth = Math.max(1, 1.5 * scale())
+  ctx.strokeStyle = 'rgba(0,0,0,0.65)'
+  ctx.strokeRect(x, y, w, h)
+  ctx.setLineDash([9 * scale(), 6 * scale()])
+  ctx.strokeStyle = 'rgba(255,255,255,0.95)'
+  ctx.strokeRect(x, y, w, h)
+  ctx.restore()
+}
+
 // ── Text tool ─────────────────────────────────────────
 // Typing happens in a real input sitting on the picture, so the GM sees
 // where the words land before committing them to the drawing.
@@ -117,28 +174,50 @@ function commitText() {
   const value = t.value.trim()
   const shape = { type: 'text', color: t._c, width: t._w, x: t._ix, y: t._iy, text: value }
   t.remove()
-  if (value) { shapes.push(shape); redraw() }
+  // Editing an existing one? Put it back where it was in the stacking order.
+  // Emptying the box is how you delete a piece of text.
+  if (value && t._idx >= 0) shapes.splice(Math.min(t._idx, shapes.length), 0, shape)
+  else if (value)           shapes.push(shape)
+  redraw()
 }
 
+// Escape: throw away the typing. If we were editing, restore the original.
 function cancelText() {
   if (!textInput) return
   const t = textInput
   textInput = null
   t.remove()
+  if (t._orig && t._idx >= 0) shapes.splice(Math.min(t._idx, shapes.length), 0, t._orig)
+  redraw()
 }
 
-function beginTextEntry(p) {
+// Reopen an existing text shape for editing, in place
+function editTextShape(i) {
+  const s = shapes[i]
+  if (!s || s.type !== 'text') return
+  shapes.splice(i, 1)          // lifted out while editing; re-added on commit
+  selected = -1
+  redraw()
+  beginTextEntry({ x: s.x, y: s.y }, { index: i, orig: s })
+}
+
+function beginTextEntry(p, edit) {
   commitText()                            // finish any text already open
+  const c = edit ? edit.orig.color : color
+  const w = edit ? edit.orig.width : uiWidth
   const inp = document.createElement('input')
   inp.type = 'text'
   inp.id = 'text-entry'
   inp.placeholder = 'Type, then Enter'
-  inp._ix = p.x; inp._iy = p.y; inp._c = color; inp._w = uiWidth
+  inp.value = edit ? edit.orig.text : ''
+  inp._ix = p.x; inp._iy = p.y; inp._c = c; inp._w = w
+  inp._idx = edit ? edit.index : -1
+  inp._orig = edit ? edit.orig : null
   inp.style.cssText = [
     'position:absolute', 'z-index:5', 'min-width:140px',
     'padding:0 4px', 'outline:none',
     'font-family:"Segoe UI",Arial,sans-serif', 'font-weight:700',
-    `color:${color}`,
+    `color:${c}`,
     'background:rgba(0,0,0,0.4)',
     'border:1px dashed rgba(255,255,255,0.85)', 'border-radius:4px',
   ].join(';')
@@ -152,12 +231,33 @@ function beginTextEntry(p) {
   document.getElementById('frame').appendChild(inp)
   textInput = inp            // must be set before placing/committing
   placeTextInput()
-  setTimeout(() => inp.focus(), 0)
+  setTimeout(() => { inp.focus(); inp.select() }, 0)
 }
 
 cv.addEventListener('pointerdown', e => {
   if (!init || e.button !== 0) return
-  if (tool === 'text') { beginTextEntry(pointFrom(e)); return }
+  const hit = pointFrom(e)
+
+  // Move tool: pick up whatever is under the pointer (text opens for editing)
+  if (tool === 'move') {
+    const i = hitTest(hit)
+    selected = i
+    if (i >= 0) {
+      cv.setPointerCapture(e.pointerId)
+      moving = { i, lastX: hit.x, lastY: hit.y, moved: false }
+    }
+    redraw()
+    return
+  }
+
+  // Text tool: clicking existing text edits it instead of stacking a new one
+  if (tool === 'text') {
+    const i = hitTest(hit)
+    if (i >= 0 && shapes[i].type === 'text') editTextShape(i)
+    else beginTextEntry(hit)
+    return
+  }
+
   cv.setPointerCapture(e.pointerId)
   drawing = true
   const p = pointFrom(e)
@@ -168,6 +268,15 @@ cv.addEventListener('pointerdown', e => {
 })
 
 cv.addEventListener('pointermove', e => {
+  if (moving) {
+    const p = pointFrom(e)
+    const dx = p.x - moving.lastX, dy = p.y - moving.lastY
+    if (dx || dy) moving.moved = true
+    translateShape(shapes[moving.i], dx, dy)
+    moving.lastX = p.x; moving.lastY = p.y
+    redraw()
+    return
+  }
   if (!drawing || !current) return
   const p = pointFrom(e)
   if (current.type === 'pen') current.pts.push(p)
@@ -176,6 +285,13 @@ cv.addEventListener('pointermove', e => {
 })
 
 function finishStroke() {
+  // A click with the move tool that never dragged and landed on text = edit it
+  if (moving) {
+    const { i, moved } = moving
+    moving = null
+    if (!moved && shapes[i] && shapes[i].type === 'text') editTextShape(i)
+    return
+  }
   if (!drawing) return
   drawing = false
   if (current) {
@@ -257,6 +373,7 @@ function redraw() {
   ctx.clearRect(0, 0, cv.width, cv.height)
   shapes.forEach(drawShape)
   if (current) drawShape(current)
+  drawSelection()
 }
 
 // ── Toolbar ───────────────────────────────────────────
@@ -265,6 +382,9 @@ document.querySelectorAll('.tool').forEach(b => {
     document.querySelectorAll('.tool').forEach(x => x.classList.remove('active'))
     b.classList.add('active')
     tool = b.dataset.tool
+    if (tool !== 'move') selected = -1        // marquee only belongs to move
+    cv.style.cursor = tool === 'move' ? 'move' : 'crosshair'
+    redraw()
   }
 })
 
@@ -281,8 +401,8 @@ document.querySelectorAll('.sw').forEach(s => {
 colorInput.oninput = e => setColor(e.target.value, false)
 
 document.getElementById('width-input').oninput = e => { uiWidth = parseInt(e.target.value) }
-document.getElementById('btn-undo').onclick  = () => { shapes.pop(); redraw() }
-document.getElementById('btn-clear').onclick = () => { cancelText(); shapes = []; redraw() }
+document.getElementById('btn-undo').onclick  = () => { shapes.pop(); selected = -1; redraw() }
+document.getElementById('btn-clear').onclick = () => { cancelText(); shapes = []; selected = -1; redraw() }
 
 // ── Send / cancel ─────────────────────────────────────
 document.getElementById('btn-cancel').onclick = () => window.close()
@@ -290,6 +410,8 @@ document.getElementById('btn-cancel').onclick = () => window.close()
 btnSend.onclick = async () => {
   if (!init) return
   commitText()          // don't lose text still being typed
+  selected = -1         // the marquee must not end up in the sent picture
+  redraw()
   btnSend.disabled = true
   try {
     // Flatten picture + drawings into one PNG
@@ -313,9 +435,16 @@ btnSend.onclick = async () => {
 
 // ── Shortcuts ─────────────────────────────────────────
 document.addEventListener('keydown', e => {
-  if (e.ctrlKey && e.key.toLowerCase() === 'z') { e.preventDefault(); shapes.pop(); redraw(); return }
+  if (e.ctrlKey && e.key.toLowerCase() === 'z') {
+    e.preventDefault(); shapes.pop(); selected = -1; redraw(); return
+  }
+  // Remove the shape picked up with the move tool
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selected >= 0) {
+    e.preventDefault()
+    shapes.splice(selected, 1); selected = -1; redraw(); return
+  }
   if (e.key === 'Escape') { window.close(); return }
-  const keys = { p: 'pen', a: 'arrow', r: 'rect', o: 'ellipse', t: 'text' }
+  const keys = { v: 'move', p: 'pen', a: 'arrow', r: 'rect', o: 'ellipse', t: 'text' }
   const t = keys[e.key.toLowerCase()]
   if (t) document.querySelector(`.tool[data-tool="${t}"]`)?.click()
 })
