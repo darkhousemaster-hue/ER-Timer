@@ -177,6 +177,7 @@ async function boot() {
   populateAudioDevices()
   populateDisplayPickers()
   initDeviceHotplug()
+  setupAnnotateDrops()
   validateNumberFolders()
   setTimeout(() => {
     window.api.send('timer-tick', { digits: state.digits })
@@ -1037,7 +1038,11 @@ function buildRiddleEl(riddle, phase, roomIndex) {
     // Drag on the wrapper so the whole tile drags
     wrap.draggable = true
     wrap.addEventListener('dragstart', e => {
-      if (!state.managerMode) { e.preventDefault(); return }
+      // Always carry the file path so the picture can be dropped on the
+      // "draw" box. Reordering stays manager-only (dragSrc drives it).
+      e.dataTransfer.setData('text/er-timer-image', imgPath)
+      e.dataTransfer.effectAllowed = 'copyMove'
+      if (!state.managerMode) return
       dragSrc = idx
       setTimeout(() => { wrap.style.opacity = '0.4' }, 0)
     })
@@ -1509,6 +1514,57 @@ async function populateDisplayPickers() {
     })
   })
 }
+
+// ════════════════════════════════════════════════════════
+// DRAW-ON-HINT — drop a picture to annotate it before sending
+// ════════════════════════════════════════════════════════
+const IMG_EXT = ['.png','.jpg','.jpeg','.gif','.webp','.bmp']
+
+function setupAnnotateDrops() {
+  // Without this, dropping a file anywhere makes Electron navigate to it
+  window.addEventListener('dragover', e => e.preventDefault())
+  window.addEventListener('drop',     e => e.preventDefault())
+
+  document.querySelectorAll('.annotate-drop').forEach(box => {
+    const roomIndex = parseInt(box.dataset.room)
+    const carriesImage = dt => dt && Array.from(dt.types)
+      .some(t => t === 'text/er-timer-image' || t === 'Files')
+
+    box.addEventListener('dragover', e => {
+      if (!carriesImage(e.dataTransfer)) return
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+      box.classList.add('drag-over')
+    })
+    box.addEventListener('dragleave', () => box.classList.remove('drag-over'))
+    box.addEventListener('drop', e => {
+      e.preventDefault()
+      box.classList.remove('drag-over')
+      // Either a thumbnail from the library, or a file from Explorer
+      let imagePath = e.dataTransfer.getData('text/er-timer-image')
+      if (!imagePath && e.dataTransfer.files.length)
+        imagePath = e.dataTransfer.files[0].path
+      if (!imagePath) return
+      if (!IMG_EXT.some(x => imagePath.toLowerCase().endsWith(x))) return
+      window.api.send('open-annotate', {
+        roomIndex, imagePath,
+        style: { bgImage: resolveAssetPath(state.settings.bgImage) || '' }
+      })
+    })
+  })
+}
+
+// Editor sent its finished picture — behave exactly like a normal picture hint
+window.api.on('annotate-result', ({ roomIndex, filePath }) => {
+  const src = 'file:///' + filePath.replace(/\\/g, '/')
+  document.querySelectorAll(`#phases-${roomIndex} .hint-thumb.selected`)
+    .forEach(el => el.classList.remove('selected'))
+  state.rooms[roomIndex].currentImageHint = src
+  window.api.send('hint-image', { roomIndex, src })
+  if (state.rooms[roomIndex].hintSoundOn !== false)
+    playSound(state.settings.hintSound, roomIndex)
+  scheduleSave()
+})
 
 // A room's stored selections, normalised to {deviceId,label} objects.
 // Handles both the legacy format (raw deviceId strings) and the new one.

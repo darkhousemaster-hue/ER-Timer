@@ -334,6 +334,79 @@ function showMinimizeButton() {
   minimizeBtnWin.on('closed', () => { minimizeBtnWin = null })
 }
 
+// ── Annotation editor ────────────────────────────────────────────────────
+let annotateWin = null
+
+const MIME_BY_EXT = {
+  '.png': 'image/png',   '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',   '.webp': 'image/webp', '.bmp': 'image/bmp',
+}
+
+// Read a picture off disk as a data URL. Loading it as file:// would taint
+// the editor's canvas and block exporting the annotated result.
+function imageToDataUrl(filePath) {
+  const mime = MIME_BY_EXT[path.extname(filePath).toLowerCase()]
+  if (!mime) return null
+  return `data:${mime};base64,` + fs.readFileSync(filePath).toString('base64')
+}
+
+function openAnnotateWindow({ roomIndex, imagePath, style }) {
+  let imageDataUrl
+  try { imageDataUrl = imageToDataUrl(imagePath) } catch { imageDataUrl = null }
+  if (!imageDataUrl) {
+    dialog.showMessageBox(controlWin, {
+      type: 'warning', title: 'Cannot open picture',
+      message: 'That file could not be read as a picture (PNG, JPG, GIF, WEBP or BMP).'
+    })
+    return
+  }
+
+  if (annotateWin && !annotateWin.isDestroyed()) annotateWin.close()
+
+  const preload = path.join(__dirname, 'preload.js')
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize
+  annotateWin = new BrowserWindow({
+    width:  Math.min(1280, Math.floor(width  * 0.72)),
+    height: Math.min(860,  Math.floor(height * 0.86)),
+    title: `ER Timer — Draw on hint (Room ${roomIndex + 1})`,
+    icon: path.join(__dirname, '..', 'assets', 'icons', 'icon.png'),
+    backgroundColor: '#14141c',
+    autoHideMenuBar: true,
+    alwaysOnTop: true,
+    webPreferences: { nodeIntegration: false, contextIsolation: true, preload }
+  })
+  annotateWin.setMenuBarVisibility(false)
+  // Control window sits at 'screen-saver' level — match it or we'd open behind
+  annotateWin.setAlwaysOnTop(true, 'screen-saver')
+  annotateWin.loadFile(path.join(__dirname, 'windows', 'annotate.html'))
+  annotateWin.webContents.on('did-finish-load', () => {
+    annotateWin.webContents.send('annotate-init', { roomIndex, imageDataUrl, style })
+    annotateWin.moveTop()
+  })
+  annotateWin.on('closed', () => { annotateWin = null })
+}
+
+ipcMain.on('open-annotate', (e, data) => openAnnotateWindow(data))
+
+// Editor finished — hand the flattened picture to the control window, which
+// sends it exactly like a normal picture hint (and plays the hint sound).
+ipcMain.on('annotate-send', (e, data) =>
+  controlWin?.webContents.send('annotate-result', data))
+
+ipcMain.handle('save-annotated-image', (e, dataUrl) => {
+  try {
+    const dir = path.join(app.getPath('userData'), 'annotated')
+    fs.mkdirSync(dir, { recursive: true })
+    const file = path.join(dir, `hint-${Date.now()}.png`)
+    fs.writeFileSync(file, Buffer.from(String(dataUrl).split(',')[1], 'base64'))
+    // Keep the folder from growing without bound
+    const old = fs.readdirSync(dir).filter(f => f.endsWith('.png')).sort()
+    old.slice(0, Math.max(0, old.length - 60))
+       .forEach(f => { try { fs.unlinkSync(path.join(dir, f)) } catch {} })
+    return file
+  } catch { return null }
+})
+
 function restoreFromMinimizeButton() {
   if (minimizeBtnWin && !minimizeBtnWin.isDestroyed()) {
     minimizeBtnWin.close()

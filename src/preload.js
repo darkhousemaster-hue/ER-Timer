@@ -9,7 +9,8 @@ contextBridge.exposeInMainWorld('api', {
       'save-layout', 'layout-mode-done', 'set-layout-mode',
       'push-styles-to-room', 'check-for-updates',
       'timer-start', 'timer-pause', 'timer-reset',
-      'restore-control', 'stop-sound', 'audio-error'
+      'restore-control', 'stop-sound', 'audio-error',
+      'open-annotate', 'annotate-send'
     ]
     if (allowed.includes(channel)) ipcRenderer.send(channel, data)
   },
@@ -19,7 +20,7 @@ contextBridge.exposeInMainWorld('api', {
       'reveal-folder', 'read-image-folder', 'create-named-folder',
       'get-number-styles-dir', 'get-displays', 'get-user-data-path',
       'check-folder-exists', 'get-app-version', 'get-window-bounds',
-      'rename-folder'
+      'rename-folder', 'save-annotated-image'
     ]
     if (allowed.includes(channel)) return ipcRenderer.invoke(channel, ...args)
   },
@@ -30,7 +31,8 @@ contextBridge.exposeInMainWorld('api', {
       'sync-styles-to-win2', 'sync-styles-to-room', 'set-layout-mode',
       'save-layout', 'layout-mode-done', 'updater-status',
       'timer-tick-control', 'timer-gameover',
-      'stop-sound', 'audio-error', 'displays-changed'
+      'stop-sound', 'audio-error', 'displays-changed',
+      'annotate-init', 'annotate-result'
     ]
     if (allowed.includes(channel))
       ipcRenderer.on(channel, (event, data) => cb(data))
