@@ -10,16 +10,58 @@
   <div id="toolbar">
     <div class="tb-group" id="tools">
       <button class="tool" data-tool="move" title="Move / edit — drag to reposition, click text to change it (V)">
-        <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor"
-             stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M8 1.6v12.8M1.6 8h12.8M8 1.6 6.2 3.4M8 1.6l1.8 1.8M8 14.4l-1.8-1.8M8 14.4l1.8-1.8M1.6 8l1.8-1.8M1.6 8l1.8 1.8M14.4 8l-1.8-1.8M14.4 8l-1.8 1.8"/>
+        <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 2.5v19M2.5 12h19M12 2.5 9.3 5.2M12 2.5l2.7 2.7M12 21.5l-2.7-2.7M12 21.5l2.7-2.7M2.5 12l2.7-2.7M2.5 12l2.7 2.7M21.5 12l-2.7-2.7M21.5 12l-2.7 2.7"/>
         </svg>
       </button>
-      <button class="tool active" data-tool="pen"     title="Freehand (P)">✎</button>
-      <button class="tool"        data-tool="arrow"   title="Arrow (A)">➜</button>
-      <button class="tool"        data-tool="rect"    title="Box (R)">▭</button>
-      <button class="tool"        data-tool="ellipse" title="Circle (O)">◯</button>
-      <button class="tool"        data-tool="text"    title="Text (T)">T</button>
+
+      <span class="tb-sep"></span>
+
+      <button class="tool active" data-tool="pen" title="Freehand (P)">
+        <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+      </button>
+      <button class="tool" data-tool="marker" title="Highlighter — see-through, shades an area without hiding it (H)">
+        <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 20.5h16"/><path d="M7.5 16.5l7.5-9 4 3.4-7.5 9h-4z"/></svg>
+      </button>
+
+      <span class="tb-sep"></span>
+
+      <button class="tool" data-tool="line" title="Straight line (L)">
+        <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 19.5 19.5 4.5"/></svg>
+      </button>
+      <button class="tool" data-tool="arrow" title="Arrow (A)">
+        <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4.5 19.5 19 5"/><path d="M19.5 12.5V4.5h-8"/></svg>
+      </button>
+      <button class="tool" data-tool="curve" title="Curved arrow — hold Shift to bend the other way (C)">
+        <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3.5 20C3.5 11 9.5 5.5 18.5 5.5"/><path d="M14 2 18.8 5.6 15.2 10"/></svg>
+      </button>
+
+      <span class="tb-sep"></span>
+
+      <button class="tool" data-tool="rect" title="Box (R)">
+        <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="1.5"/></svg>
+      </button>
+      <button class="tool" data-tool="fillrect" title="Solid box — covers up part of the picture (F)">
+        <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="1.5" fill="currentColor"/></svg>
+      </button>
+      <button class="tool" data-tool="ellipse" title="Circle (O)">
+        <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/></svg>
+      </button>
+
+      <span class="tb-sep"></span>
+
+      <button class="tool" data-tool="number" title="Numbered marker — click to drop 1, 2, 3… (N)">
+        <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="8.5"/><path d="M10.6 9.6 12.7 8.4V16"/></svg>
+      </button>
+      <button class="tool" data-tool="text" title="Text (T)">
+        <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 7V4.5h14V7M12 4.5v15M9 19.5h6"/></svg>
+      </button>
     </div>
 
     <div class="tb-sep"></div>
@@ -43,7 +85,7 @@
 
     <div class="tb-group">
       <span class="tb-label">Size</span>
-      <input type="range" id="width-input" min="2" max="24" value="6">
+      <input type="range" id="width-input" min="2" max="24" value="13">
     </div>
 
     <div class="tb-sep"></div>

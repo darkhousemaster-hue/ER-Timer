@@ -6,7 +6,7 @@ let shapes    = []         // committed shapes, redrawn on every change
 let current   = null       // shape being drawn right now
 let tool      = 'pen'
 let color     = '#ff3b30'
-let uiWidth   = 6
+let uiWidth   = 13        // middle of the size slider
 let drawing   = false
 let selected  = -1         // index into shapes, for the move/edit tool
 let moving    = null       // { i, lastX, lastY } while dragging a shape
@@ -79,11 +79,11 @@ function pointFrom(e) {
   }
 }
 
-// Shift constrains: square boxes, circles, 45° arrows
+// Shift constrains: square boxes, circles, 45° lines and arrows
 function constrain(s, shift) {
   if (!shift) return s
   const dx = s.x2 - s.x1, dy = s.y2 - s.y1
-  if (s.type === 'arrow') {
+  if (s.type === 'arrow' || s.type === 'line') {
     const a = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4)
     const len = Math.hypot(dx, dy)
     s.x2 = s.x1 + Math.cos(a) * len
@@ -108,7 +108,11 @@ function shapeBounds(s) {
     const m = textMetrics(s)
     return { x1: s.x, y1: s.y, x2: s.x + m.w, y2: s.y + m.h }
   }
-  if (s.type === 'pen') {
+  if (s.type === 'number') {
+    const r = Math.max(10, s.width * 2.2 * scale())
+    return { x1: s.x - r, y1: s.y - r, x2: s.x + r, y2: s.y + r }
+  }
+  if (s.type === 'pen' || s.type === 'marker') {
     const xs = s.pts.map(p => p.x), ys = s.pts.map(p => p.y)
     return { x1: Math.min(...xs), y1: Math.min(...ys),
              x2: Math.max(...xs), y2: Math.max(...ys) }
@@ -129,8 +133,8 @@ function hitTest(p) {
 }
 
 function translateShape(s, dx, dy) {
-  if (s.type === 'pen')      s.pts.forEach(pt => { pt.x += dx; pt.y += dy })
-  else if (s.type === 'text'){ s.x += dx; s.y += dy }
+  if (s.type === 'pen' || s.type === 'marker') s.pts.forEach(pt => { pt.x += dx; pt.y += dy })
+  else if (s.type === 'text' || s.type === 'number') { s.x += dx; s.y += dy }
   else { s.x1 += dx; s.y1 += dy; s.x2 += dx; s.y2 += dy }
 }
 
@@ -258,11 +262,21 @@ cv.addEventListener('pointerdown', e => {
     return
   }
 
+  // Numbered markers drop straight onto the picture, one click each.
+  // The next number is worked out from what is already there, so undo
+  // and delete never leave a gap in the sequence.
+  if (tool === 'number') {
+    const next = shapes.reduce((m, s) => s.type === 'number' ? Math.max(m, s.n) : m, 0) + 1
+    shapes.push({ type: 'number', color, width: uiWidth, x: hit.x, y: hit.y, n: next })
+    redraw()
+    return
+  }
+
   cv.setPointerCapture(e.pointerId)
   drawing = true
   const p = pointFrom(e)
-  current = tool === 'pen'
-    ? { type: 'pen', color, width: uiWidth, pts: [p] }
+  current = (tool === 'pen' || tool === 'marker')
+    ? { type: tool, color, width: uiWidth, pts: [p] }
     : { type: tool, color, width: uiWidth, x1: p.x, y1: p.y, x2: p.x, y2: p.y }
   redraw()
 })
@@ -279,8 +293,13 @@ cv.addEventListener('pointermove', e => {
   }
   if (!drawing || !current) return
   const p = pointFrom(e)
-  if (current.type === 'pen') current.pts.push(p)
-  else { current.x2 = p.x; current.y2 = p.y; constrain(current, e.shiftKey) }
+  if (current.type === 'pen' || current.type === 'marker') current.pts.push(p)
+  else {
+    current.x2 = p.x; current.y2 = p.y
+    // Shift bends a curved arrow the other way instead of snapping its angle
+    if (current.type === 'curve') current.flip = e.shiftKey
+    else constrain(current, e.shiftKey)
+  }
   redraw()
 })
 
@@ -296,7 +315,7 @@ function finishStroke() {
   drawing = false
   if (current) {
     // Ignore accidental taps that produced nothing visible
-    const isDot = current.type === 'pen'
+    const isDot = (current.type === 'pen' || current.type === 'marker')
       ? current.pts.length < 2
       : Math.hypot(current.x2 - current.x1, current.y2 - current.y1) < 3
     if (!isDot) shapes.push(current)
@@ -318,6 +337,7 @@ function drawShape(s) {
 
   if (s.type === 'text') {
     const fs = textFontPx(s.width)
+    ctx.save()
     ctx.font = `700 ${fs}px "Segoe UI", Arial, sans-serif`
     ctx.textBaseline = 'top'
     ctx.miterLimit = 2
@@ -327,6 +347,67 @@ function drawShape(s) {
     ctx.strokeText(s.text, s.x, s.y)
     ctx.fillStyle = s.color
     ctx.fillText(s.text, s.x, s.y)
+    ctx.restore()
+    return
+  }
+  // Numbered marker — a filled disc with the step number inside
+  if (s.type === 'number') {
+    const r = Math.max(10, s.width * 2.2 * scale())
+    ctx.save()
+    ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI * 2)
+    ctx.fillStyle = s.color; ctx.fill()
+    ctx.lineWidth = Math.max(2, r / 7)
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.stroke()
+    ctx.fillStyle = '#fff'
+    ctx.font = `700 ${r * 1.15}px "Segoe UI", Arial, sans-serif`
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+    ctx.fillText(String(s.n), s.x, s.y)
+    ctx.restore()
+    return
+  }
+  // Highlighter — wide and see-through so the picture still reads underneath
+  if (s.type === 'marker') {
+    if (s.pts.length < 2) return
+    ctx.save()
+    ctx.globalAlpha = 0.35
+    ctx.lineWidth = w * 3.2
+    ctx.beginPath()
+    ctx.moveTo(s.pts[0].x, s.pts[0].y)
+    s.pts.forEach(p => ctx.lineTo(p.x, p.y))
+    ctx.stroke()
+    ctx.restore()
+    return
+  }
+  if (s.type === 'line') {
+    ctx.beginPath(); ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2); ctx.stroke()
+    return
+  }
+  if (s.type === 'fillrect') {
+    ctx.fillRect(Math.min(s.x1, s.x2), Math.min(s.y1, s.y2),
+                 Math.abs(s.x2 - s.x1), Math.abs(s.y2 - s.y1))
+    return
+  }
+  // Curved arrow — bows to one side of the straight line between the ends
+  if (s.type === 'curve') {
+    const dx = s.x2 - s.x1, dy = s.y2 - s.y1
+    const len = Math.hypot(dx, dy) || 1
+    const nx = -dy / len, ny = dx / len
+    const bow = len * 0.28 * (s.flip ? -1 : 1)
+    const cx = (s.x1 + s.x2) / 2 + nx * bow
+    const cy = (s.y1 + s.y2) / 2 + ny * bow
+    const head = Math.max(w * 3.2, 12 * scale())
+    // The head points along the curve's tangent where it ends
+    const ang = Math.atan2(s.y2 - cy, s.x2 - cx)
+    ctx.beginPath()
+    ctx.moveTo(s.x1, s.y1)
+    ctx.quadraticCurveTo(cx, cy,
+      s.x2 - Math.cos(ang) * head * 0.8, s.y2 - Math.sin(ang) * head * 0.8)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(s.x2, s.y2)
+    ctx.lineTo(s.x2 - Math.cos(ang - 0.42) * head, s.y2 - Math.sin(ang - 0.42) * head)
+    ctx.lineTo(s.x2 - Math.cos(ang + 0.42) * head, s.y2 - Math.sin(ang + 0.42) * head)
+    ctx.closePath(); ctx.fill()
     return
   }
   if (s.type === 'pen') {
@@ -444,7 +525,8 @@ document.addEventListener('keydown', e => {
     shapes.splice(selected, 1); selected = -1; redraw(); return
   }
   if (e.key === 'Escape') { window.close(); return }
-  const keys = { v: 'move', p: 'pen', a: 'arrow', r: 'rect', o: 'ellipse', t: 'text' }
+  const keys = { v:'move', p:'pen', h:'marker', l:'line', a:'arrow', c:'curve',
+                 r:'rect', f:'fillrect', o:'ellipse', n:'number', t:'text' }
   const t = keys[e.key.toLowerCase()]
   if (t) document.querySelector(`.tool[data-tool="${t}"]`)?.click()
 })

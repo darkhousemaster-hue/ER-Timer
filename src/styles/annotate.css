@@ -25,6 +25,11 @@ body {
   display: flex; align-items: center; justify-content: center;
 }
 .tool svg { display: block; }
+.t-ico {
+  width: 17px; height: 17px; display: block;
+  fill: none; stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round;
+}
 .tool:hover { background: #34344a; }
 .tool.active { background: #0F6E56; border-color: #0F6E56; color: #fff; }
 
