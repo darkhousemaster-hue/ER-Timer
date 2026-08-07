@@ -19,6 +19,10 @@ let state = {
   // Machine preference, deliberately outside `settings` so switching a
   // style preset never changes where the control window opens.
   rememberWindowPos: true,
+  // With two rooms open, show both of them the same picture-hint library
+  // (Room 1's — the one single-room mode uses). Room 2 keeps its own
+  // library in this file either way, so turning this off restores it.
+  sharedHints: true,
   settings: {
     imageMode:       false,
     activeNumFolder: '',
@@ -129,6 +133,56 @@ function showPrompt(message) {
 }
 
 // ════════════════════════════════════════════════════════
+// CHOICE MODAL — two clear options, styled like the app
+// ════════════════════════════════════════════════════════
+function showChoice(title, detail, primaryLabel, secondaryLabel) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div')
+    overlay.dataset.choiceOverlay = '1'
+    overlay.style.cssText = [
+      'position:fixed','inset:0','background:rgba(0,0,0,0.45)',
+      'z-index:9999','display:flex','align-items:center','justify-content:center'
+    ].join(';')
+    const box = document.createElement('div')
+    box.style.cssText = [
+      'background:#fff','border-radius:12px','padding:22px',
+      'min-width:320px','max-width:400px',
+      'box-shadow:0 8px 40px rgba(0,0,0,0.25)',
+      "font-family:'Segoe UI',system-ui,sans-serif"
+    ].join(';')
+    const h = document.createElement('p')
+    h.textContent = title
+    h.style.cssText = 'margin:0 0 8px;font-size:15px;font-weight:700;color:#1a1a2e'
+    const d = document.createElement('p')
+    d.textContent = detail
+    d.style.cssText = 'margin:0 0 18px;font-size:12.5px;line-height:1.5;color:#5c6470'
+    const row = document.createElement('div')
+    row.style.cssText = 'display:flex;flex-direction:column;gap:8px'
+    const mk = (label, primary) => {
+      const b = document.createElement('button')
+      b.textContent = label
+      b.style.cssText = [
+        'padding:12px 14px','border-radius:9px','font-size:13.5px','font-weight:600',
+        'cursor:pointer','font-family:inherit','text-align:center',
+        primary ? 'background:#0F6E56;color:#fff;border:1px solid #0d5e4a'
+                : 'background:#fff;color:#33404f;border:1px solid #d8d8d0'
+      ].join(';')
+      return b
+    }
+    const a = mk(primaryLabel, true)
+    const b2 = mk(secondaryLabel, false)
+    const done = v => { document.body.removeChild(overlay); resolve(v) }
+    a.onclick  = () => done(true)
+    b2.onclick = () => done(false)
+    row.appendChild(a); row.appendChild(b2)
+    box.appendChild(h); box.appendChild(d); box.appendChild(row)
+    overlay.appendChild(box)
+    document.body.appendChild(overlay)
+    setTimeout(() => a.focus(), 30)
+  })
+}
+
+// ════════════════════════════════════════════════════════
 // TRACK OPEN ACCORDIONS so re-render restores them
 // ════════════════════════════════════════════════════════
 // Stored as Set of phase.id and Set of riddle.id
@@ -148,6 +202,7 @@ async function boot() {
     if (!state.roomNames) state.roomNames = ['Room 1', 'Room 2']
     if (!('managerPassword' in state)) state.managerPassword = ''
     if (!('rememberWindowPos' in state)) state.rememberWindowPos = true
+    if (!('sharedHints' in state)) state.sharedHints = true
     // Migrate old state where numberFolders was inside settings
     if (state.settings.numberFolders) {
       state.numberFolders = state.settings.numberFolders
@@ -173,6 +228,8 @@ async function boot() {
   })
   const chkWin = document.getElementById('chk-remember-window')
   if (chkWin) chkWin.checked = state.rememberWindowPos !== false
+  const chkShared = document.getElementById('chk-shared-hints')
+  if (chkShared) chkShared.checked = state.sharedHints !== false
   renderDigits()
   renderResetDigits()
   renderTransport()
@@ -420,8 +477,22 @@ function applyTwoRoomsMode(on) {
     fullscreen: wb.timer2Fullscreen || false
   })
 }
-document.getElementById('chk-two-rooms').onchange = e => {
-  applyTwoRoomsMode(e.target.checked)
+document.getElementById('chk-two-rooms').onchange = async e => {
+  const on = e.target.checked
+  applyTwoRoomsMode(on)
+  // Ask once, when the second room is opened, how its picture hints should
+  // work. The answer sticks and can be changed again in these settings.
+  if (on) {
+    const share = await showChoice(
+      'How should the picture hints work?',
+      'Room 2 can show the same hints as Room 1, or keep a set of its own. ' +
+      'Either way each room still sends to its own screen, and nothing is deleted — ' +
+      "Room 2's own hints come back if you switch this off later.",
+      'Both rooms use the same hints',
+      'Each room has its own hints')
+    state.sharedHints = share
+    applySharedHints()
+  }
   scheduleSave()
 }
 
@@ -768,20 +839,32 @@ function genId() { return '_' + Math.random().toString(36).slice(2, 9) }
 document.querySelector('.btn-add-phase[data-room="0"]').addEventListener('click', () => addPhase(0))
 document.querySelector('.btn-add-phase[data-room="1"]').addEventListener('click', () => addPhase(1))
 
+// Which room holds the picture-hint library a given column should show.
+// When the two rooms share, that is always Room 1 — the same library
+// single-room mode uses. Room 2's own phases stay in state, just unused.
+function hintOwner(roomIndex) {
+  return state.rooms[state.sharedHints ? 0 : roomIndex]
+}
+
 async function addPhase(roomIndex) {
   const name = await showPrompt('Phase name:')
   if (!name) return
-  state.rooms[roomIndex].phases.push({ id: genId(), name, riddles: [] })
+  hintOwner(roomIndex).phases.push({ id: genId(), name, riddles: [] })
   renderPhases(roomIndex)
   scheduleSave()
 }
 
-function renderPhases(roomIndex) {
+function renderPhases(roomIndex, mirrored) {
   const container = document.getElementById('phases-' + roomIndex)
+  if (!container) return
   container.innerHTML = ''
-  state.rooms[roomIndex].phases.forEach(phase => {
+  hintOwner(roomIndex).phases.forEach(phase => {
     container.appendChild(buildPhaseEl(phase, roomIndex))
   })
+  // Both columns show the same library while sharing, so redraw the other
+  // one too. `mirrored` stops that bouncing back and forth.
+  if (!mirrored && state.sharedHints)
+    renderPhases(roomIndex === 0 ? 1 : 0, true)
 }
 
 function managerBtn(label) {
@@ -818,7 +901,8 @@ function buildPhaseEl(phase, roomIndex) {
     e.stopPropagation()
     const confirmed = await showPrompt(`Type DELETE to confirm removing "${phase.name}":`)
     if (confirmed !== 'DELETE') return
-    state.rooms[roomIndex].phases = state.rooms[roomIndex].phases.filter(p => p.id !== phase.id)
+    const owner = hintOwner(roomIndex)
+    owner.phases = owner.phases.filter(p => p.id !== phase.id)
     openPhases.delete(phase.id)
     renderPhases(roomIndex)
     scheduleSave()
@@ -867,7 +951,7 @@ function buildPhaseEl(phase, roomIndex) {
   moveUpBtn.title = 'Move phase up'
   moveUpBtn.onclick = e => {
     e.stopPropagation()
-    const phases = state.rooms[roomIndex].phases
+    const phases = hintOwner(roomIndex).phases
     const idx = phases.indexOf(phase)
     if (idx <= 0) return
     ;[phases[idx - 1], phases[idx]] = [phases[idx], phases[idx - 1]]
@@ -878,7 +962,7 @@ function buildPhaseEl(phase, roomIndex) {
   moveDownBtn.title = 'Move phase down'
   moveDownBtn.onclick = e => {
     e.stopPropagation()
-    const phases = state.rooms[roomIndex].phases
+    const phases = hintOwner(roomIndex).phases
     const idx = phases.indexOf(phase)
     if (idx === -1 || idx >= phases.length - 1) return
     ;[phases[idx], phases[idx + 1]] = [phases[idx + 1], phases[idx]]
@@ -1560,6 +1644,23 @@ async function populateDisplayPickers() {
       list.appendChild(row)
     })
   })
+}
+
+// ════════════════════════════════════════════════════════
+// SHARED PICTURE HINTS (2-room mode)
+// ════════════════════════════════════════════════════════
+function applySharedHints() {
+  const chk = document.getElementById('chk-shared-hints')
+  if (chk) chk.checked = state.sharedHints !== false
+  renderPhases(0)
+  renderPhases(1)
+}
+
+const chkSharedHints = document.getElementById('chk-shared-hints')
+if (chkSharedHints) chkSharedHints.onchange = e => {
+  state.sharedHints = e.target.checked
+  applySharedHints()
+  scheduleSave()
 }
 
 // ════════════════════════════════════════════════════════
