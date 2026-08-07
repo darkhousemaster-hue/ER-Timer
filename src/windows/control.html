@@ -67,24 +67,10 @@
         <button class="btn-hint-del"  data-room="0">Delete</button>
       </div>
     </div>
-    <div class="annotate-drop" data-room="0" title="Drag a picture here to draw on it, then send it to the players">
-      <svg class="drop-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
-      <span class="drop-txt">Drop a picture here to draw on it
-        <small>from the hints below, or from a folder</small></span>
-    </div>
-    <div class="hint-pic-area">
-      <div class="pic-header">
-        <span class="sub-label" style="margin:0">Picture hints</span>
-        <button class="btn-clear-screen" data-room="0" disabled title="Take the text and picture off the player screen">
-          <svg class="mini-ico" viewBox="0 0 24 24" aria-hidden="true" style="fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-          Clear screen
-        </button>
-        <button class="btn-add-phase manager-only" data-room="0">+ Phase</button>
-      </div>
-      <div class="phases-scroll">
-        <div class="phases-container" id="phases-0"></div>
-      </div>
-    </div>
+    <button class="btn-clear-screen" data-room="0" disabled title="Take the text and picture off this room's screen">
+      <svg class="mini-ico" viewBox="0 0 24 24" aria-hidden="true" style="fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      Clear screen
+    </button>
   </div>
 
   <!-- Room 2 -->
@@ -108,26 +94,29 @@
         <button class="btn-hint-del"  data-room="1">Delete</button>
       </div>
     </div>
-    <div class="annotate-drop" data-room="1" title="Drag a picture here to draw on it, then send it to the players">
-      <svg class="drop-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
-      <span class="drop-txt">Drop a picture here to draw on it
-        <small>from the hints below, or from a folder</small></span>
-    </div>
-    <div class="hint-pic-area">
-      <div class="pic-header">
-        <span class="sub-label" style="margin:0">Picture hints</span>
-        <button class="btn-clear-screen" data-room="1" disabled title="Take the text and picture off the player screen">
-          <svg class="mini-ico" viewBox="0 0 24 24" aria-hidden="true" style="fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-          Clear screen
-        </button>
-        <button class="btn-add-phase manager-only" data-room="1">+ Phase</button>
-      </div>
-      <div class="phases-scroll">
-        <div class="phases-container" id="phases-1"></div>
-      </div>
-    </div>
+    <button class="btn-clear-screen" data-room="1" disabled title="Take the text and picture off this room's screen">
+      <svg class="mini-ico" viewBox="0 0 24 24" aria-hidden="true" style="fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      Clear screen
+    </button>
   </div>
 
+</div>
+
+<!-- ══ PICTURE HINTS — one gallery for both rooms ═══════════════ -->
+<div id="gallery">
+  <div class="annotate-drop" title="Drag a picture here to draw on it. It is sent to the room its phase belongs to.">
+    <svg class="drop-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+    <span class="drop-txt">Drop a picture here to draw on it
+      <small>from the hints below, or from a folder</small></span>
+  </div>
+  <div class="pic-header">
+    <span class="sub-label" style="margin:0">Picture hints</span>
+    <span id="gallery-note" class="gallery-note">each phase goes to its own room</span>
+    <button class="btn-add-phase manager-only">+ Phase</button>
+  </div>
+  <div class="phases-scroll">
+    <div class="phases-container" id="phases"></div>
+  </div>
 </div>
 
 <!-- ══ SETTINGS ════════════════════════════════════════════════ -->
@@ -151,14 +140,6 @@
       <div class="ss-row">
         <label>Devices <span class="tip" data-tip="Audio outputs and displays refresh automatically when plugged in or removed. Use this button if a newly connected device doesn't appear.">?</span></label>
         <button id="btn-refresh-devices">↻ Refresh devices</button>
-      </div>
-
-      <div class="ss-row">
-        <label>Picture Hints <span class="tip" data-tip="With two rooms open, both can show the same set of picture hints — the same one single-room mode uses. Turn this off to give Room 2 its own separate set. Nothing is deleted either way: Room 2's own hints are kept and come back when you switch this off.">?</span></label>
-        <label class="toggle-row" style="gap:5px;font-size:12px;">
-          <input type="checkbox" id="chk-shared-hints" checked>
-          <span>Both rooms use the same hints</span>
-        </label>
       </div>
 
       <div class="ss-row">

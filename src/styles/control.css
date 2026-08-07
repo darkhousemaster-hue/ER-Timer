@@ -71,17 +71,64 @@ section { padding: 14px 16px; border-bottom: 1px solid #ddd; flex-shrink: 0; }
 #btn-reset:hover { background: #dcdcd6; }
 
 /* ── Room columns ──────────────────────────────────────── */
+/* Only the per-room controls split. The picture hints below are one
+   shared gallery — each phase carries the room it sends to. */
 #rooms-container {
-  display: flex; flex: 1; min-height: 0; overflow: hidden;
+  display: flex; flex-shrink: 0; overflow: visible;
+  border-bottom: 2px solid #d8d8d0;
 }
+#rooms-container.two-rooms .room-col { padding: 10px 12px; }
+#rooms-container.two-rooms #room-col-1 { border-left: 2px solid #d8d8d0; }
+
+/* ── One gallery for both rooms ────────────────────────── */
+#gallery {
+  display: flex; flex-direction: column;
+  flex: 1; min-height: 0; overflow: hidden;
+  padding: 11px 14px 0;
+}
+.gallery-note {
+  font-size: 10.5px; color: #5c6470; font-style: italic;
+  margin-left: 2px; display: none;
+}
+.two-rooms-on .gallery-note { display: inline; }
+
+/* Which room a phase sends to — shown to everyone in 2-room mode */
+.phase-room-badge {
+  margin-left: auto; font-size: 9.5px; font-weight: 800; letter-spacing: 0.05em;
+  border-radius: 999px; padding: 3px 9px; white-space: nowrap; display: none;
+}
+.two-rooms-on .phase-room-badge { display: inline-block; }
+.phase-room-badge.room-0 { background: #e5edff; color: #1d4ed8; border: 1px solid #bfd0fb; }
+.phase-room-badge.room-1 { background: #fbe8ff; color: #a21caf; border: 1px solid #f0c8fb; }
+
+/* Manager-only switch that sets where a phase goes */
+.phase-room-seg {
+  margin-left: auto; display: none; border: 1px solid #cfd4da;
+  border-radius: 999px; overflow: hidden; background: #fff; flex-shrink: 0;
+}
+.two-rooms-on.manager-mode .phase-room-seg { display: inline-flex; }
+.two-rooms-on.manager-mode .phase-room-badge { display: none; }
+.phase-room-seg button {
+  border: none; background: none; cursor: pointer; color: #5c6470;
+  font: 800 9.5px/1 inherit; letter-spacing: 0.05em; padding: 6px 10px;
+}
+.phase-room-seg button:hover { background: #f0f0ec; }
+.phase-room-seg button.on-0 { background: #1d4ed8; color: #fff; }
+.phase-room-seg button.on-1 { background: #a21caf; color: #fff; }
 #rooms-container.one-room  .room-col { flex: 1; }
 #rooms-container.two-rooms .room-col { flex: 1; min-width: 0; }
-#rooms-container.two-rooms #room-col-1 { border-left: 1px solid #ddd; }
 #rooms-container.one-room  #room-col-1 { display: none; }
 .room-col {
   padding: 12px 14px; display: flex; flex-direction: column;
-  gap: 12px; overflow: hidden; min-height: 0;
+  gap: 10px; min-width: 0;
 }
+/* In two-room mode each column is only about half as wide, so the text
+   hint buttons sit under the field instead of beside it. */
+#rooms-container.two-rooms .text-hint-row { flex-wrap: wrap; }
+#rooms-container.two-rooms .hint-input { flex: 1 1 100%; }
+#rooms-container.two-rooms .btn-hint-send,
+#rooms-container.two-rooms .btn-hint-del { flex: 1; }
+.room-col .btn-clear-screen { width: 100%; justify-content: center; }
 
 /* ── Text hints ────────────────────────────────────────── */
 .hint-text-area { display: flex; flex-direction: column; }
@@ -230,8 +277,9 @@ details[open] > summary::before { content: '▼'; }
 
 /* ── Room label row (label + fullscreen button) ──── */
 .room-label-row {
-  display: flex; align-items: center;
+  display: flex; align-items: center; gap: 7px;
   justify-content: space-between; margin-bottom: 10px;
+  flex-wrap: wrap;
 }
 .room-label-row .room-label { margin-bottom: 0; }
 .btn-fullscreen {
@@ -243,8 +291,10 @@ details[open] > summary::before { content: '▼'; }
 .btn-fullscreen:hover { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
 
 /* ── Accordion headers — full row clickable ─────── */
+/* Wrap rather than overflow: in manager mode a phase row carries rename,
+   move, delete and the room switch, which is a lot for a narrow window. */
 .phase-header, .riddle-header {
-  user-select: none;
+  user-select: none; flex-wrap: wrap; row-gap: 4px;
 }
 
 /* ── Default reset time input ───────────────────────── */
@@ -265,8 +315,10 @@ details[open] > summary::before { content: '▼'; }
 /* room 2 rows hidden by JS via inline style on boot */
 
 /* ── Room name input (manager mode) ─────────────────── */
+/* min-width:0 lets the name field shrink in a half-width column instead
+   of shoving the Fullscreen button off the edge */
 .room-name-input {
-  flex: 1; padding: 3px 7px; border: 1px solid #1a1a2e;
+  flex: 1; min-width: 0; padding: 3px 7px; border: 1px solid #1a1a2e;
   border-radius: 5px; font-size: 12px; font-weight: 700;
   font-family: inherit; text-transform: uppercase;
   letter-spacing: 0.1em; color: #1a1a2e; outline: none;

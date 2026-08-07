@@ -19,10 +19,9 @@ let state = {
   // Machine preference, deliberately outside `settings` so switching a
   // style preset never changes where the control window opens.
   rememberWindowPos: true,
-  // With two rooms open, show both of them the same picture-hint library
-  // (Room 1's — the one single-room mode uses). Room 2 keeps its own
-  // library in this file either way, so turning this off restores it.
-  sharedHints: true,
+  // One picture-hint gallery for both rooms. Each phase carries `room`,
+  // which decides the screen its pictures go to when 2 rooms are open.
+  phases: [],
   settings: {
     imageMode:       false,
     activeNumFolder: '',
@@ -202,7 +201,19 @@ async function boot() {
     if (!state.roomNames) state.roomNames = ['Room 1', 'Room 2']
     if (!('managerPassword' in state)) state.managerPassword = ''
     if (!('rememberWindowPos' in state)) state.rememberWindowPos = true
-    if (!('sharedHints' in state)) state.sharedHints = true
+    // One gallery for both rooms: merge the old per-room libraries into a
+    // single list, each phase keeping the room it came from. The originals
+    // are left in place untouched as a safety net.
+    if (!Array.isArray(saved.phases)) {
+      state.phases = []
+      ;(state.rooms[0]?.phases || []).forEach(p => {
+        p.room = 0; state.phases.push(p)
+      })
+      ;(state.rooms[1]?.phases || []).forEach(p => {
+        p.room = 1; state.phases.push(p)
+      })
+    }
+    state.phases.forEach(p => { if (p.room !== 1) p.room = 0 })
     // Migrate old state where numberFolders was inside settings
     if (state.settings.numberFolders) {
       state.numberFolders = state.settings.numberFolders
@@ -228,15 +239,12 @@ async function boot() {
   })
   const chkWin = document.getElementById('chk-remember-window')
   if (chkWin) chkWin.checked = state.rememberWindowPos !== false
-  const chkShared = document.getElementById('chk-shared-hints')
-  if (chkShared) chkShared.checked = state.sharedHints !== false
   renderDigits()
   renderResetDigits()
   renderTransport()
   updateClearButton(0)
   updateClearButton(1)
-  renderPhases(0)
-  renderPhases(1)
+  renderGallery()
   applyAllSettings()
   refreshPresetList()
   await unlockAudioLabels()
@@ -464,6 +472,8 @@ function applyTwoRoomsMode(on) {
   state.twoRooms = on
   document.getElementById('chk-two-rooms').checked = on
   document.getElementById('rooms-container').className = on ? 'two-rooms' : 'one-room'
+  // Drives the room badges and the manager switch on each phase
+  document.body.classList.toggle('two-rooms-on', on)
   // Show/hide room-2 device rows in settings
   const r2rows = ['row-room2-audio', 'row-room2-display']
   r2rows.forEach(id => {
@@ -476,23 +486,18 @@ function applyTwoRoomsMode(on) {
     savedBounds: wb.timer2 || null,
     fullscreen: wb.timer2Fullscreen || false
   })
-}
-document.getElementById('chk-two-rooms').onchange = async e => {
-  const on = e.target.checked
-  applyTwoRoomsMode(on)
-  // Ask once, when the second room is opened, how its picture hints should
-  // work. The answer sticks and can be changed again in these settings.
-  if (on) {
-    const share = await showChoice(
-      'How should the picture hints work?',
-      'Room 2 can show the same hints as Room 1, or keep a set of its own. ' +
-      'Either way each room still sends to its own screen, and nothing is deleted — ' +
-      "Room 2's own hints come back if you switch this off later.",
-      'Both rooms use the same hints',
-      'Each room has its own hints')
-    state.sharedHints = share
-    applySharedHints()
+  // With one room everything goes to the one screen, so the badges and
+  // any Room 2 pictures on screen have to be reconsidered.
+  if (!on && state.rooms[1]) {
+    state.rooms[1].currentTextHint = ''
+    state.rooms[1].currentImageHint = ''
   }
+  renderGallery()
+  updateClearButton(0)
+  updateClearButton(1)
+}
+document.getElementById('chk-two-rooms').onchange = e => {
+  applyTwoRoomsMode(e.target.checked)
   scheduleSave()
 }
 
@@ -536,7 +541,7 @@ function applyManagerMode(rerender = true) {
     if (lbl) lbl.style.display = on ? 'none' : ''
     if (inp) inp.style.display = on ? 'block' : 'none'
   })
-  if (rerender) { renderPhases(0); renderPhases(1) }
+  if (rerender) renderGallery()
 }
 
 // Show password modal — returns entered value or null
@@ -798,17 +803,26 @@ document.querySelectorAll('.btn-test-hint-sound').forEach(btn => {
 // ════════════════════════════════════════════════════════
 // One button takes everything off the player screen. It stays disabled while
 // that screen is already empty, so it doubles as "is anything showing?".
+// Thumbnails for one room live all over the single gallery, so clear the
+// highlight by matching the picture that room currently has on screen.
+function clearRoomHighlight(roomIndex) {
+  const live = state.rooms[roomIndex].currentImageHint
+  if (!live) return
+  document.querySelectorAll('#phases .hint-thumb.selected').forEach(el => {
+    if (el.dataset.src === live) el.classList.remove('selected')
+  })
+}
+
 document.querySelectorAll('.btn-clear-screen').forEach(btn => {
   btn.onclick = () => {
     const roomIndex = parseInt(btn.dataset.room)
     const inp = document.querySelector(`.hint-input[data-room='${roomIndex}']`)
     if (inp) inp.value = ''
+    clearRoomHighlight(roomIndex)
     state.rooms[roomIndex].currentTextHint  = ''
     state.rooms[roomIndex].currentImageHint = ''
     window.api.send('hint-text',  { roomIndex, text: '' })
     window.api.send('hint-clear', { roomIndex })
-    document.querySelectorAll(`#phases-${roomIndex} .hint-thumb.selected`)
-      .forEach(el => el.classList.remove('selected'))
     updateClearButton(roomIndex)
     scheduleSave()
   }
@@ -816,9 +830,8 @@ document.querySelectorAll('.btn-clear-screen').forEach(btn => {
 
 // Picture only — used when the live thumbnail is clicked a second time
 function removeActiveImageHint(roomIndex) {
+  clearRoomHighlight(roomIndex)
   state.rooms[roomIndex].currentImageHint = ''
-  document.querySelectorAll(`#phases-${roomIndex} .hint-thumb.selected`)
-    .forEach(el => el.classList.remove('selected'))
   window.api.send('hint-clear', { roomIndex })
   updateClearButton(roomIndex)
   scheduleSave()
@@ -836,35 +849,38 @@ function updateClearButton(roomIndex) {
 // ════════════════════════════════════════════════════════
 function genId() { return '_' + Math.random().toString(36).slice(2, 9) }
 
-document.querySelector('.btn-add-phase[data-room="0"]').addEventListener('click', () => addPhase(0))
-document.querySelector('.btn-add-phase[data-room="1"]').addEventListener('click', () => addPhase(1))
+document.querySelector('.btn-add-phase').addEventListener('click', () => addPhase())
 
-// Which room holds the picture-hint library a given column should show.
-// When the two rooms share, that is always Room 1 — the same library
-// single-room mode uses. Room 2's own phases stay in state, just unused.
-function hintOwner(roomIndex) {
-  return state.rooms[state.sharedHints ? 0 : roomIndex]
+// There is one gallery for both rooms. Each phase carries the room it
+// sends to, so a picture always goes to the same screen.
+function phaseRoom(phase) {
+  return (state.twoRooms && phase && phase.room === 1) ? 1 : 0
 }
 
-async function addPhase(roomIndex) {
+function roomLabel(r) {
+  return ((state.roomNames && state.roomNames[r]) || ('Room ' + (r + 1))).toUpperCase()
+}
+
+// Find the phase a library picture belongs to, so a dragged thumbnail
+// still knows which room it should end up on.
+function phaseForImagePath(imgPath) {
+  return state.phases.find(ph =>
+    ph.riddles.some(r => (r.hints || []).includes(imgPath)))
+}
+
+async function addPhase() {
   const name = await showPrompt('Phase name:')
   if (!name) return
-  hintOwner(roomIndex).phases.push({ id: genId(), name, riddles: [] })
-  renderPhases(roomIndex)
+  state.phases.push({ id: genId(), name, room: 0, riddles: [] })
+  renderGallery()
   scheduleSave()
 }
 
-function renderPhases(roomIndex, mirrored) {
-  const container = document.getElementById('phases-' + roomIndex)
+function renderGallery() {
+  const container = document.getElementById('phases')
   if (!container) return
   container.innerHTML = ''
-  hintOwner(roomIndex).phases.forEach(phase => {
-    container.appendChild(buildPhaseEl(phase, roomIndex))
-  })
-  // Both columns show the same library while sharing, so redraw the other
-  // one too. `mirrored` stops that bouncing back and forth.
-  if (!mirrored && state.sharedHints)
-    renderPhases(roomIndex === 0 ? 1 : 0, true)
+  state.phases.forEach(phase => container.appendChild(buildPhaseEl(phase)))
 }
 
 function managerBtn(label) {
@@ -879,7 +895,7 @@ function managerBtn(label) {
   return btn
 }
 
-function buildPhaseEl(phase, roomIndex) {
+function buildPhaseEl(phase) {
   const wrap = document.createElement('div')
   wrap.className = 'phase-item'
 
@@ -895,16 +911,37 @@ function buildPhaseEl(phase, roomIndex) {
   nameEl.className = 'phase-name'
   nameEl.textContent = phase.name
 
+  // Where this phase sends. GMs see a badge; managers get a switch.
+  const badge = document.createElement('span')
+  badge.className = 'phase-room-badge room-' + phaseRoom(phase)
+  badge.textContent = roomLabel(phaseRoom(phase))
+
+  const seg = document.createElement('span')
+  seg.className = 'phase-room-seg'
+  seg.title = 'Which room this phase sends to'
+  ;[0, 1].forEach(r => {
+    const b = document.createElement('button')
+    b.textContent = roomLabel(r)
+    if (phaseRoom(phase) === r) b.classList.add('on-' + r)
+    b.onclick = e => {
+      e.stopPropagation()
+      if (phaseRoom(phase) === r) return
+      phase.room = r
+      renderGallery()
+      scheduleSave()
+    }
+    seg.appendChild(b)
+  })
+
   const delBtn = managerBtn('✕')
   delBtn.style.color = '#c44'
   delBtn.onclick = async e => {
     e.stopPropagation()
     const confirmed = await showPrompt(`Type DELETE to confirm removing "${phase.name}":`)
     if (confirmed !== 'DELETE') return
-    const owner = hintOwner(roomIndex)
-    owner.phases = owner.phases.filter(p => p.id !== phase.id)
+    state.phases = state.phases.filter(p => p.id !== phase.id)
     openPhases.delete(phase.id)
-    renderPhases(roomIndex)
+    renderGallery()
     scheduleSave()
   }
 
@@ -951,22 +988,22 @@ function buildPhaseEl(phase, roomIndex) {
   moveUpBtn.title = 'Move phase up'
   moveUpBtn.onclick = e => {
     e.stopPropagation()
-    const phases = hintOwner(roomIndex).phases
+    const phases = state.phases
     const idx = phases.indexOf(phase)
     if (idx <= 0) return
     ;[phases[idx - 1], phases[idx]] = [phases[idx], phases[idx - 1]]
-    renderPhases(roomIndex)
+    renderGallery()
     scheduleSave()
   }
   const moveDownBtn = managerBtn('▼')
   moveDownBtn.title = 'Move phase down'
   moveDownBtn.onclick = e => {
     e.stopPropagation()
-    const phases = hintOwner(roomIndex).phases
+    const phases = state.phases
     const idx = phases.indexOf(phase)
     if (idx === -1 || idx >= phases.length - 1) return
     ;[phases[idx], phases[idx + 1]] = [phases[idx + 1], phases[idx]]
-    renderPhases(roomIndex)
+    renderGallery()
     scheduleSave()
   }
 
@@ -976,6 +1013,8 @@ function buildPhaseEl(phase, roomIndex) {
   hdr.appendChild(moveUpBtn)
   hdr.appendChild(moveDownBtn)
   hdr.appendChild(delBtn)
+  hdr.appendChild(badge)
+  hdr.appendChild(seg)
 
   const addRiddleBtn = managerBtn('+ Add Riddle')
   addRiddleBtn.onclick = async () => {
@@ -983,13 +1022,13 @@ function buildPhaseEl(phase, roomIndex) {
     if (!name) return
     phase.riddles.push({ id: genId(), name, hints: [] })
     openPhases.add(phase.id)  // keep phase open after adding riddle
-    renderPhases(roomIndex)
+    renderGallery()
     scheduleSave()
   }
   body.appendChild(addRiddleBtn)
 
   phase.riddles.forEach(riddle => {
-    body.appendChild(buildRiddleEl(riddle, phase, roomIndex))
+    body.appendChild(buildRiddleEl(riddle, phase))
   })
 
   wrap.appendChild(hdr)
@@ -997,7 +1036,7 @@ function buildPhaseEl(phase, roomIndex) {
   return wrap
 }
 
-function buildRiddleEl(riddle, phase, roomIndex) {
+function buildRiddleEl(riddle, phase) {
   const wrap = document.createElement('div')
   wrap.className = 'riddle-item'
 
@@ -1021,7 +1060,7 @@ function buildRiddleEl(riddle, phase, roomIndex) {
     if (confirmed !== 'DELETE') return
     phase.riddles = phase.riddles.filter(r => r.id !== riddle.id)
     openRiddles.delete(riddle.id)
-    renderPhases(roomIndex)
+    renderGallery()
     scheduleSave()
   }
 
@@ -1064,7 +1103,7 @@ function buildRiddleEl(riddle, phase, roomIndex) {
     if (idx <= 0) return
     ;[riddles[idx - 1], riddles[idx]] = [riddles[idx], riddles[idx - 1]]
     openPhases.add(phase.id)
-    renderPhases(roomIndex)
+    renderGallery()
     scheduleSave()
   }
   const moveRiddleDownBtn = managerBtn('▼')
@@ -1076,7 +1115,7 @@ function buildRiddleEl(riddle, phase, roomIndex) {
     if (idx === -1 || idx >= riddles.length - 1) return
     ;[riddles[idx], riddles[idx + 1]] = [riddles[idx + 1], riddles[idx]]
     openPhases.add(phase.id)
-    renderPhases(roomIndex)
+    renderGallery()
     scheduleSave()
   }
 
@@ -1101,7 +1140,7 @@ function buildRiddleEl(riddle, phase, roomIndex) {
       // Keep both phase AND riddle open after adding images
       openPhases.add(phase.id)
       openRiddles.add(riddle.id)
-      renderPhases(roomIndex)
+      renderGallery()
       scheduleSave()
     }
     inp.click()
@@ -1127,17 +1166,19 @@ function buildRiddleEl(riddle, phase, roomIndex) {
     img.className = 'hint-thumb'
     img.src = src
     img.dataset.idx = idx
-    if (state.rooms[roomIndex].currentImageHint === src) img.classList.add('selected')
+    img.dataset.src = src
+    // The phase decides the room, so a picture always goes to the same screen
+    if (state.rooms[phaseRoom(phase)].currentImageHint === src) img.classList.add('selected')
 
     img.addEventListener('click', () => {
+      const roomIndex = phaseRoom(phase)
       // Clicking the picture that is already live takes it back off the
       // screen — this is how you clear just the picture and keep the text.
       if (state.rooms[roomIndex].currentImageHint === src) {
         removeActiveImageHint(roomIndex)
         return
       }
-      document.querySelectorAll(`#phases-${roomIndex} .hint-thumb.selected`)
-        .forEach(el => el.classList.remove('selected'))
+      clearRoomHighlight(roomIndex)
       img.classList.add('selected')
       state.rooms[roomIndex].currentImageHint = src
       window.api.send('hint-image', { roomIndex, src })
@@ -1156,13 +1197,15 @@ function buildRiddleEl(riddle, phase, roomIndex) {
       e.stopPropagation()
       riddle.hints.splice(idx, 1)
       // If deleted image was the active hint, clear it
+      const roomIndex = phaseRoom(phase)
       if (state.rooms[roomIndex].currentImageHint === src) {
         state.rooms[roomIndex].currentImageHint = ''
         window.api.send('hint-clear', { roomIndex })
+        updateClearButton(roomIndex)
       }
       openPhases.add(phase.id)
       openRiddles.add(riddle.id)
-      renderPhases(roomIndex)
+      renderGallery()
       scheduleSave()
     })
 
@@ -1239,7 +1282,7 @@ function buildRiddleEl(riddle, phase, roomIndex) {
     dragSrc = null
     openPhases.add(phase.id)
     openRiddles.add(riddle.id)
-    renderPhases(roomIndex)
+    renderGallery()
     scheduleSave()
   })
 
@@ -1647,23 +1690,6 @@ async function populateDisplayPickers() {
 }
 
 // ════════════════════════════════════════════════════════
-// SHARED PICTURE HINTS (2-room mode)
-// ════════════════════════════════════════════════════════
-function applySharedHints() {
-  const chk = document.getElementById('chk-shared-hints')
-  if (chk) chk.checked = state.sharedHints !== false
-  renderPhases(0)
-  renderPhases(1)
-}
-
-const chkSharedHints = document.getElementById('chk-shared-hints')
-if (chkSharedHints) chkSharedHints.onchange = e => {
-  state.sharedHints = e.target.checked
-  applySharedHints()
-  scheduleSave()
-}
-
-// ════════════════════════════════════════════════════════
 // CONTROL WINDOW POSITION
 // ════════════════════════════════════════════════════════
 // Bounds are captured every few seconds by saveWithBounds(); this flag only
@@ -1692,7 +1718,6 @@ function setupAnnotateDrops() {
   window.addEventListener('drop',     e => e.preventDefault())
 
   document.querySelectorAll('.annotate-drop').forEach(box => {
-    const roomIndex = parseInt(box.dataset.room)
     const carriesImage = dt => dt && Array.from(dt.types)
       .some(t => t === 'text/er-timer-image' || t === 'Files')
 
@@ -1703,15 +1728,29 @@ function setupAnnotateDrops() {
       box.classList.add('drag-over')
     })
     box.addEventListener('dragleave', () => box.classList.remove('drag-over'))
-    box.addEventListener('drop', e => {
+    box.addEventListener('drop', async e => {
       e.preventDefault()
       box.classList.remove('drag-over')
       // Either a thumbnail from the library, or a file from Explorer
-      let imagePath = e.dataTransfer.getData('text/er-timer-image')
+      const fromLibrary = e.dataTransfer.getData('text/er-timer-image')
+      let imagePath = fromLibrary
       if (!imagePath && e.dataTransfer.files.length)
         imagePath = e.dataTransfer.files[0].path
       if (!imagePath) return
       if (!IMG_EXT.some(x => imagePath.toLowerCase().endsWith(x))) return
+
+      // A picture from the library goes to the room its phase belongs to.
+      // A file from outside has no phase, so with two rooms open we ask.
+      let roomIndex = 0
+      if (fromLibrary) {
+        roomIndex = phaseRoom(phaseForImagePath(fromLibrary))
+      } else if (state.twoRooms) {
+        const first = await showChoice(
+          'Which room is this picture for?',
+          'It came from outside the hint library, so it has no room of its own.',
+          roomLabel(0), roomLabel(1))
+        roomIndex = first ? 0 : 1
+      }
       window.api.send('open-annotate', {
         roomIndex, imagePath,
         style: { bgImage: resolveAssetPath(state.settings.bgImage) || '' }
