@@ -12,7 +12,13 @@ section { padding: 14px 16px; border-bottom: 1px solid #ddd; flex-shrink: 0; }
   font-size: 13px; font-weight: 600;
   text-transform: uppercase; letter-spacing: 0.08em; color: #888;
 }
-.sub-label { font-size: 11px; color: #999; display: block; margin-bottom: 5px; }
+/* #5c6470 gives 5.4:1 on the panel — #999 was 2.6:1 and hard to read */
+.sub-label {
+  font-size: 11px; color: #5c6470; display: block; margin-bottom: 5px;
+  font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+}
+/* Small inline icon used on Test / Fullscreen / Clear screen */
+.mini-ico { width: 13px; height: 13px; fill: currentColor; display: block; flex: none; }
 .room-label {
   font-size: 12px; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.1em; color: #1a1a2e; margin-bottom: 10px;
@@ -31,21 +37,38 @@ section { padding: 14px 16px; border-bottom: 1px solid #ddd; flex-shrink: 0; }
 }
 .dc-btn:hover { background: #e8e8e4; }
 .dc-btn:active { transform: scale(0.96); }
+/* The clock is what a GM checks at a glance — make it the biggest thing here.
+   Tabular figures stop the digits shifting as they count down. */
 .dc-digit {
-  font-size: 38px; font-weight: 700; width: 46px;
-  text-align: center; font-family: 'Courier New', monospace; color: #1a1a2e;
+  font-size: 62px; font-weight: 700; width: 62px;
+  text-align: center; font-family: Consolas, 'Courier New', monospace;
+  font-variant-numeric: tabular-nums; color: #1a1a2e; line-height: 1.02;
 }
-.dc-sep { font-size: 34px; font-weight: 700; color: #1a1a2e; }
+.dc-sep { font-size: 54px; font-weight: 700; color: #1a1a2e; line-height: 1.02; }
 
 #timer-buttons { display: flex; gap: 8px; justify-content: center; }
 #timer-buttons button {
-  flex: 1; padding: 11px; border: none; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 11px; border: none; border-radius: 8px; min-height: 50px;
   font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+  transition: background 0.15s;
 }
 #timer-buttons button:active { transform: scale(0.97); }
-#btn-start  { background: #0F6E56; color: #fff; }
-#btn-reset  { background: #e8e8e4; color: #333; }
-#btn-pause  { background: #1a1a2e; color: #fff; }
+#timer-buttons button:focus-visible { outline: 2px solid #1a1a2e; outline-offset: 2px; }
+
+/* Start/Pause share one button — twice the width of Reset, so the action
+   you reach for during a game is the obvious one. */
+#btn-playpause { flex: 2; font-size: 16px; color: #fff; }
+#btn-playpause.is-start { background: #0F6E56; }
+#btn-playpause.is-start:hover { background: #0d5e4a; }
+#btn-playpause.is-pause { background: #B45309; }   /* 5.0:1 with white */
+#btn-playpause.is-pause:hover { background: #96450a; }
+.tb-ico { width: 18px; height: 18px; fill: currentColor; display: block; flex: none; }
+#btn-playpause.is-start .ic-pause,
+#btn-playpause.is-pause .ic-play { display: none; }
+
+#btn-reset { flex: 1; background: #e8e8e4; color: #333; }
+#btn-reset:hover { background: #dcdcd6; }
 
 /* ── Room columns ──────────────────────────────────────── */
 #rooms-container {
@@ -84,13 +107,20 @@ section { padding: 14px 16px; border-bottom: 1px solid #ddd; flex-shrink: 0; }
 /* Push label to fill space so buttons sit on the right */
 .pic-header .sub-label { flex: 1; }
 
-/* Remove hint button */
-.btn-remove-hint {
-  padding: 5px 10px; border: 1px solid #ddd; border-radius: 7px;
-  background: #fff; font-size: 11px; cursor: pointer; font-family: inherit;
-  white-space: nowrap;
+/* One button clears both the text and the picture. Disabled while the
+   player screen is already empty, so it also shows whether anything is live. */
+.btn-clear-screen {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 36px; padding: 0 13px; border: 1px solid #a93226; border-radius: 8px;
+  background: #c0392b; color: #fff; font-size: 12px; font-weight: 700;
+  cursor: pointer; font-family: inherit; white-space: nowrap;
+  transition: background 0.15s, opacity 0.15s;
 }
-.btn-remove-hint:hover { background: #fce8e8; color: #c44; }
+.btn-clear-screen:hover:not(:disabled) { background: #a93226; }
+.btn-clear-screen:active:not(:disabled) { transform: scale(0.97); }
+.btn-clear-screen:disabled {
+  background: #e8e8e4; border-color: #dcdcd4; color: #8a8f98; cursor: default;
+}
 
 .btn-add-phase {
   padding: 5px 10px; border: 1px solid #1a1a2e; border-radius: 7px;
@@ -205,11 +235,12 @@ details[open] > summary::before { content: '▼'; }
 }
 .room-label-row .room-label { margin-bottom: 0; }
 .btn-fullscreen {
-  padding: 3px 8px; border: 1px solid #ccc; border-radius: 6px;
-  background: #fff; cursor: pointer; font-size: 14px;
-  line-height: 1; color: #1a1a2e;
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 36px; padding: 0 11px; border: 1px solid #d8d8d0; border-radius: 8px;
+  background: #fff; cursor: pointer; font-size: 12px; font-weight: 600;
+  line-height: 1; color: #33404f; font-family: inherit; white-space: nowrap;
 }
-.btn-fullscreen:hover { background: #1a1a2e; color: #fff; }
+.btn-fullscreen:hover { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
 
 /* ── Accordion headers — full row clickable ─────── */
 .phase-header, .riddle-header {
@@ -233,16 +264,6 @@ details[open] > summary::before { content: '▼'; }
 .device-list { display: flex; flex-direction: column; gap: 3px; }
 /* room 2 rows hidden by JS via inline style on boot */
 
-/* ── Remove all hints button ─────────────────────────── */
-.btn-remove-all {
-  padding: 5px 12px; border: none; border-radius: 7px;
-  background: #c0392b; color: #fff; font-size: 11px;
-  font-weight: 600; cursor: pointer; font-family: inherit;
-  letter-spacing: 0.03em; transition: background 0.15s;
-}
-.btn-remove-all:hover  { background: #a93226; }
-.btn-remove-all:active { transform: scale(0.97); }
-
 /* ── Room name input (manager mode) ─────────────────── */
 .room-name-input {
   flex: 1; padding: 3px 7px; border: 1px solid #1a1a2e;
@@ -255,25 +276,40 @@ details[open] > summary::before { content: '▼'; }
 /* ── Hint sound controls ─────────────────────────────── */
 .hint-sound-controls {
   display: flex; align-items: center; gap: 8px;
-  padding: 4px 0 6px;
-  border-bottom: 1px solid #eee; margin-bottom: 6px;
+  padding: 4px 0 8px;
+  border-bottom: 1px solid #eee; margin-bottom: 8px;
 }
+.btn-test-hint-sound {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 36px; padding: 0 13px; border: 1px solid #d8d8d0; border-radius: 8px;
+  background: #fff; font-size: 12px; font-weight: 600; color: #33404f;
+  cursor: pointer; font-family: inherit;
+}
+.btn-test-hint-sound:hover { background: #eceae6; }
 
 /* Drop a picture here to open the drawing editor before sending.
-   Fixed width (it never needs to stretch), roughly half its old length. */
+   Full width and tall enough to be an easy drop target. */
 .annotate-drop {
-  flex: 0 1 145px; min-width: 0;
-  min-height: 60px;
-  display: flex; align-items: center; justify-content: center;
-  padding: 4px 8px; border: 1.5px dashed #c9c9c2; border-radius: 7px;
-  background: #fbfbf9; color: #999;
-  font-size: 11px; line-height: 1.3; text-align: center;
+  display: flex; align-items: center; justify-content: center; gap: 11px;
+  min-height: 76px; margin-bottom: 10px;
+  padding: 6px 12px; border: 2px dashed #bfbfb6; border-radius: 10px;
+  background: #fbfbf9; color: #4a5566;
+  font-size: 13.5px; font-weight: 600; line-height: 1.25; text-align: center;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.annotate-drop .drop-ico {
+  width: 26px; height: 26px; flex: none; display: block;
+  fill: none; stroke: currentColor; stroke-width: 1.9;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.annotate-drop small {
+  display: block; font-size: 11px; font-weight: 400; color: #5c6470; margin-top: 2px;
 }
 .annotate-drop.drag-over {
   border-color: #0F6E56; border-style: solid;
-  background: #eafaf1; color: #0F6E56; font-weight: 600;
+  background: #e9f7f1; color: #0b5b46;
 }
+.annotate-drop.drag-over small { color: #0b5b46; }
 
 /* ── Scrollable picture hints area ──────────────────── */
 .hint-pic-area {

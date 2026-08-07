@@ -175,6 +175,9 @@ async function boot() {
   if (chkWin) chkWin.checked = state.rememberWindowPos !== false
   renderDigits()
   renderResetDigits()
+  renderTransport()
+  updateClearButton(0)
+  updateClearButton(1)
   renderPhases(0)
   renderPhases(1)
   applyAllSettings()
@@ -256,21 +259,38 @@ function stopAllSounds() {
 // Timer runs in main process (Node.js) — immune to window throttling
 // Renderer just sends commands and receives tick updates back
 
+// Start and Pause are one button — it always shows the action you can take
+// right now, so it doubles as the running/paused indicator.
+function renderTransport() {
+  const btn = document.getElementById('btn-playpause')
+  if (!btn) return
+  const running = !!state.timerRunning
+  btn.classList.toggle('is-pause',  running)
+  btn.classList.toggle('is-start', !running)
+  const lbl = document.getElementById('playpause-label')
+  if (lbl) lbl.textContent = running ? 'Pause' : 'Start'
+  btn.setAttribute('aria-label', running ? 'Pause timer' : 'Start timer')
+  btn.title = running ? 'Pause the countdown (Space)' : 'Start the countdown (Space)'
+}
+
 function startTimer() {
   if (state.timerRunning) return
   state.timerRunning = true
+  renderTransport()
   window.api.send('timer-start', { seconds: digitsToSeconds(state.digits) })
   scheduleSave()
 }
 
 function pauseTimer() {
   state.timerRunning = false
+  renderTransport()
   window.api.send('timer-pause')
   stopCountdownAudio()
 }
 
 function resetTimer() {
   state.timerRunning = false
+  renderTransport()
   stopAllSounds()
   state.digits = [...state.resetDigits]
   renderDigits()
@@ -294,14 +314,18 @@ window.api.on('timer-tick-control', data => {
 // Gameover — fired by main process 500ms after hitting zero
 window.api.on('timer-gameover', () => {
   state.timerRunning = false
+  renderTransport()          // time is up — offer Start again
   stopCountdownAudio()
   if (state.settings.gameoverSound)
     playSound(state.settings.gameoverSound, -1, 'gameover')
   scheduleSave()
 })
 
-document.getElementById('btn-start').onclick = () => { startTimer(); scheduleSave() }
-document.getElementById('btn-pause').onclick = () => { pauseTimer(); scheduleSave() }
+document.getElementById('btn-playpause').onclick = () => {
+  if (state.timerRunning) pauseTimer()
+  else                    startTimer()
+  scheduleSave()
+}
 document.getElementById('btn-reset').onclick = resetTimer
 
 // ── Live timer digits (top +/- controls) ─────────────
@@ -668,6 +692,7 @@ function sendTextHint(roomIndex) {
   window.api.send('hint-text', { roomIndex, text })
   if (state.rooms[roomIndex].hintSoundOn !== false)
     playSound(state.settings.hintSound, roomIndex)
+  updateClearButton(roomIndex)
   scheduleSave()
 }
 function deleteTextHint(roomIndex) {
@@ -675,6 +700,7 @@ function deleteTextHint(roomIndex) {
   inp.value = ''
   state.rooms[roomIndex].currentTextHint = ''
   window.api.send('hint-text', { roomIndex, text: '' })
+  updateClearButton(roomIndex)
   scheduleSave()
 }
 
@@ -699,14 +725,11 @@ document.querySelectorAll('.btn-test-hint-sound').forEach(btn => {
 // ════════════════════════════════════════════════════════
 // REMOVE HINT
 // ════════════════════════════════════════════════════════
-document.querySelectorAll('.btn-remove-hint').forEach(btn => {
-  btn.onclick = () => removeActiveImageHint(parseInt(btn.dataset.room))
-})
-
-document.querySelectorAll('.btn-remove-all').forEach(btn => {
+// One button takes everything off the player screen. It stays disabled while
+// that screen is already empty, so it doubles as "is anything showing?".
+document.querySelectorAll('.btn-clear-screen').forEach(btn => {
   btn.onclick = () => {
     const roomIndex = parseInt(btn.dataset.room)
-    // Clear text hint
     const inp = document.querySelector(`.hint-input[data-room='${roomIndex}']`)
     if (inp) inp.value = ''
     state.rooms[roomIndex].currentTextHint  = ''
@@ -715,15 +738,26 @@ document.querySelectorAll('.btn-remove-all').forEach(btn => {
     window.api.send('hint-clear', { roomIndex })
     document.querySelectorAll(`#phases-${roomIndex} .hint-thumb.selected`)
       .forEach(el => el.classList.remove('selected'))
+    updateClearButton(roomIndex)
     scheduleSave()
   }
 })
+
+// Picture only — used when the live thumbnail is clicked a second time
 function removeActiveImageHint(roomIndex) {
   state.rooms[roomIndex].currentImageHint = ''
   document.querySelectorAll(`#phases-${roomIndex} .hint-thumb.selected`)
     .forEach(el => el.classList.remove('selected'))
   window.api.send('hint-clear', { roomIndex })
+  updateClearButton(roomIndex)
   scheduleSave()
+}
+
+function updateClearButton(roomIndex) {
+  const btn = document.querySelector(`.btn-clear-screen[data-room='${roomIndex}']`)
+  if (!btn) return
+  const r = state.rooms[roomIndex] || {}
+  btn.disabled = !r.currentTextHint && !r.currentImageHint
 }
 
 // ════════════════════════════════════════════════════════
@@ -1012,6 +1046,12 @@ function buildRiddleEl(riddle, phase, roomIndex) {
     if (state.rooms[roomIndex].currentImageHint === src) img.classList.add('selected')
 
     img.addEventListener('click', () => {
+      // Clicking the picture that is already live takes it back off the
+      // screen — this is how you clear just the picture and keep the text.
+      if (state.rooms[roomIndex].currentImageHint === src) {
+        removeActiveImageHint(roomIndex)
+        return
+      }
       document.querySelectorAll(`#phases-${roomIndex} .hint-thumb.selected`)
         .forEach(el => el.classList.remove('selected'))
       img.classList.add('selected')
@@ -1019,6 +1059,7 @@ function buildRiddleEl(riddle, phase, roomIndex) {
       window.api.send('hint-image', { roomIndex, src })
       if (state.rooms[roomIndex].hintSoundOn !== false)
         playSound(state.settings.hintSound, roomIndex)
+      updateClearButton(roomIndex)
       scheduleSave()
     })
 
@@ -1587,6 +1628,7 @@ window.api.on('annotate-result', ({ roomIndex, filePath }) => {
   window.api.send('hint-image', { roomIndex, src })
   if (state.rooms[roomIndex].hintSoundOn !== false)
     playSound(state.settings.hintSound, roomIndex)
+  updateClearButton(roomIndex)
   scheduleSave()
 })
 
