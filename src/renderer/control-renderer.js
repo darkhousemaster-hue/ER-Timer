@@ -828,15 +828,6 @@ document.querySelectorAll('.btn-clear-screen').forEach(btn => {
   }
 })
 
-// Picture only — used when the live thumbnail is clicked a second time
-function removeActiveImageHint(roomIndex) {
-  clearRoomHighlight(roomIndex)
-  state.rooms[roomIndex].currentImageHint = ''
-  window.api.send('hint-clear', { roomIndex })
-  updateClearButton(roomIndex)
-  scheduleSave()
-}
-
 function updateClearButton(roomIndex) {
   const btn = document.querySelector(`.btn-clear-screen[data-room='${roomIndex}']`)
   if (!btn) return
@@ -1170,14 +1161,10 @@ function buildRiddleEl(riddle, phase) {
     // The phase decides the room, so a picture always goes to the same screen
     if (state.rooms[phaseRoom(phase)].currentImageHint === src) img.classList.add('selected')
 
+    // Every click sends the picture again and plays the hint sound again,
+    // so clicking twice is how you get the players' attention twice.
     img.addEventListener('click', () => {
       const roomIndex = phaseRoom(phase)
-      // Clicking the picture that is already live takes it back off the
-      // screen — this is how you clear just the picture and keep the text.
-      if (state.rooms[roomIndex].currentImageHint === src) {
-        removeActiveImageHint(roomIndex)
-        return
-      }
       clearRoomHighlight(roomIndex)
       img.classList.add('selected')
       state.rooms[roomIndex].currentImageHint = src
