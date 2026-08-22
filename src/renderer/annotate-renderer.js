@@ -163,12 +163,34 @@ let textInput = null
 function textFontPx(uiw) { return Math.max(10, uiw * 5 * scale()) }
 function displayScale()  { return cv.getBoundingClientRect().width / cv.width }
 
+// Keep the typing box exactly where the words will land, at exactly the
+// size they will end up, and only as wide as what has been typed so far.
 function placeTextInput() {
   if (!textInput) return
   const ds = displayScale()
-  textInput.style.left = (5 + textInput._ix * ds) + 'px'
-  textInput.style.top  = (5 + textInput._iy * ds) + 'px'
-  textInput.style.fontSize = Math.max(11, textFontPx(textInput._w) * ds) + 'px'
+  const fsCanvas = textFontPx(textInput._w)     // size on the picture
+  const fsScreen = fsCanvas * ds                // the same size on screen
+  // Measure with the very font the canvas will draw with, so the box and
+  // the finished text are the same width to the pixel.
+  ctx.save()
+  ctx.font = `700 ${fsCanvas}px "Segoe UI", Arial, sans-serif`
+  const m     = ctx.measureText(textInput.value || 'Hg')
+  const asc   = m.fontBoundingBoxAscent  || fsCanvas * 0.75
+  const desc  = m.fontBoundingBoxDescent || fsCanvas * 0.25
+  const textW = ctx.measureText(textInput.value || '').width * ds
+  ctx.restore()
+  // Making the box exactly ascent+descent tall, with the same line-height,
+  // puts the typed baseline where the canvas will draw it, so the words do
+  // not jump when the box goes away.
+  const boxH = (asc + desc) * ds
+  const st = textInput.style
+  st.fontSize   = fsScreen + 'px'
+  st.lineHeight = boxH + 'px'
+  st.height     = boxH + 'px'
+  st.width      = Math.max(fsScreen * 0.55, textW) + 'px'
+  // -1 for the border, so the glyphs sit where they will be drawn
+  st.left = (5 + textInput._ix * ds - 1) + 'px'
+  st.top  = (5 + textInput._iy * ds - 1) + 'px'
 }
 
 function commitText() {
@@ -212,19 +234,20 @@ function beginTextEntry(p, edit) {
   const inp = document.createElement('input')
   inp.type = 'text'
   inp.id = 'text-entry'
-  inp.placeholder = 'Type, then Enter'
   inp.value = edit ? edit.orig.text : ''
   inp._ix = p.x; inp._iy = p.y; inp._c = c; inp._w = w
   inp._idx = edit ? edit.index : -1
   inp._orig = edit ? edit.orig : null
+  // No padding and content-box sizing: the box is the text, nothing more
   inp.style.cssText = [
-    'position:absolute', 'z-index:5', 'min-width:140px',
-    'padding:0 4px', 'outline:none',
+    'position:absolute', 'z-index:5',
+    'padding:0', 'margin:0', 'outline:none', 'box-sizing:content-box',
     'font-family:"Segoe UI",Arial,sans-serif', 'font-weight:700',
     `color:${c}`,
-    'background:rgba(0,0,0,0.4)',
-    'border:1px dashed rgba(255,255,255,0.85)', 'border-radius:4px',
+    'background:rgba(0,0,0,0.35)',
+    'border:1px dashed rgba(255,255,255,0.85)', 'border-radius:3px',
   ].join(';')
+  inp.addEventListener('input', placeTextInput)   // hug the text as it is typed
   // Keep keystrokes away from the editor's own shortcuts
   inp.addEventListener('keydown', e => {
     e.stopPropagation()
