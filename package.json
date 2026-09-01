@@ -6,6 +6,7 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win --x64",
+    "build:linux": "electron-builder --linux --x64",
     "release": "npm version patch && git push --follow-tags"
   },
   "build": {
@@ -31,9 +32,23 @@
       "allowToChangeInstallationDirectory": false,
       "deleteAppDataOnUninstall": false
     },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "assets/icons/linux",
+      "category": "Utility",
+      "synopsis": "Escape Room dual-room timer",
+      "maintainer": "darkhousemaster-hue <darkhousemaster-hue@users.noreply.github.com>",
+      "executableArgs": [
+        "--ozone-platform=x11"
+      ]
+    },
     "files": [
       "src/**/*",
       "assets/**/*",
+      "!assets/icons/linux/**",
       "package.json"
     ],
     "publish": {

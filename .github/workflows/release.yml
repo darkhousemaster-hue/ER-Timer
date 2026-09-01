@@ -28,3 +28,81 @@ jobs:
         run: npm run build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── Linux ──────────────────────────────────────────────────────────────
+  # Runs after the Windows job so the two never race to create the same
+  # GitHub release, and so a Linux problem can never delay a Windows one.
+  release-linux:
+    needs: release
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      # Build first, publish only after the smoke test passes, so a broken
+      # Linux build never lands on the release.
+      - name: Build (no publish yet)
+        run: npx electron-builder --linux --x64 --publish never
+
+      - name: Install a headless desktop to test in
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb x11-utils xdotool \
+            libgtk-3-0 libnss3 libasound2 libgbm1 libxss1 \
+            libatk1.0-0 libatk-bridge2.0-0 libcups2 libxkbcommon0 \
+            libxcomposite1 libxdamage1 libxfixes3 libxrandr2
+
+      - name: Smoke test — does it start and open its windows?
+        run: |
+          set -e
+          APP=$(find dist/linux-unpacked -maxdepth 1 -type f -executable | head -1)
+          echo "executable: $APP"
+          Xvfb :99 -screen 0 1920x1080x24 >/dev/null 2>&1 &
+          sleep 3
+          export DISPLAY=:99
+          "$APP" --no-sandbox > /tmp/app.log 2>&1 &
+          APP_PID=$!
+          sleep 25
+
+          if ! kill -0 "$APP_PID" 2>/dev/null; then
+            echo "FAIL: the app exited on its own"; cat /tmp/app.log; exit 1
+          fi
+
+          echo "--- windows on screen ---"
+          xdotool search --name "ER Timer" getwindowname %@ || true
+          COUNT=$(xdotool search --name "ER Timer" | wc -l)
+          kill "$APP_PID" 2>/dev/null || true
+
+          if [ "$COUNT" -lt 2 ]; then
+            echo "FAIL: expected the control window and a room window, found $COUNT"
+            cat /tmp/app.log; exit 1
+          fi
+          if grep -qiE "cannot find module|uncaught exception|app threw an error" /tmp/app.log; then
+            echo "FAIL: fatal errors in the log"; cat /tmp/app.log; exit 1
+          fi
+          echo "PASS: started with $COUNT windows"
+
+      - name: Publish Linux artifacts
+        run: |
+          set -e
+          ls -la dist/
+          # The updater needs this file; fail loudly rather than ship without it
+          test -f dist/latest-linux.yml || { echo "latest-linux.yml missing"; exit 1; }
+          gh release upload "${GITHUB_REF_NAME}" \
+            dist/*.AppImage dist/*.deb dist/latest-linux.yml --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: App log (always)
+        if: always()
+        run: cat /tmp/app.log || true
