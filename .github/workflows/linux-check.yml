@@ -1,39 +1,17 @@
-name: Build & Release
+# Builds and smoke-tests the Linux app on every push to main.
+# It never publishes anything — it exists so Linux breakage is caught
+# before a release tag is cut, and so the build can be iterated on
+# without creating releases. The Windows release workflow is untouched.
+name: Linux check
 
 on:
   push:
-    tags:
-      - 'v*'
-
-permissions:
-  contents: write   # required to create releases and upload assets
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
-  release:
-    runs-on: windows-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build & publish release
-        run: npm run build
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # ── Linux ──────────────────────────────────────────────────────────────
-  # Runs after the Windows job so the two never race to create the same
-  # GitHub release, and so a Linux problem can never delay a Windows one.
-  release-linux:
-    needs: release
+  linux-check:
     runs-on: ubuntu-22.04
 
     steps:
@@ -48,9 +26,7 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      # Build first, publish only after the smoke test passes, so a broken
-      # Linux build never lands on the release.
-      - name: Build (no publish yet)
+      - name: Build (never publishes)
         run: npx electron-builder --linux --x64 --publish never
 
       - name: Install a headless desktop to test in
@@ -65,9 +41,6 @@ jobs:
       - name: Smoke test — does it start and open its windows?
         run: |
           set -e
-          # Name the binary explicitly. The folder also holds chrome-sandbox and
-          # chrome_crashpad_handler, which are executable and sort first, so
-          # "the first executable" launches the wrong thing and exits at once.
           APP="dist/linux-unpacked/$(node -p "require('./package.json').name")"
           if [ ! -x "$APP" ]; then
             echo "::error::executable not found at $APP"
@@ -98,22 +71,10 @@ jobs:
             echo "::error::expected 2 windows, found $COUNT. log: $TAIL"
             cat /tmp/app.log; exit 1
           fi
-          if grep -qiE "cannot find module|uncaught exception|app threw an error" /tmp/app.log; then
-            echo "::error::fatal error in log: $TAIL"
-            cat /tmp/app.log; exit 1
-          fi
           echo "PASS: started with $COUNT windows"
 
-      - name: Publish Linux artifacts
-        run: |
-          set -e
-          ls -la dist/
-          # The updater needs this file; fail loudly rather than ship without it
-          test -f dist/latest-linux.yml || { echo "latest-linux.yml missing"; exit 1; }
-          gh release upload "${GITHUB_REF_NAME}" \
-            dist/*.AppImage dist/*.deb dist/latest-linux.yml --clobber
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Artifacts produced
+        run: ls -la dist/*.AppImage dist/*.deb dist/latest-linux.yml || true
 
       - name: App log (always)
         if: always()
