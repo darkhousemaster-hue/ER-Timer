@@ -76,6 +76,18 @@ jobs:
       - name: Artifacts produced
         run: ls -la dist/*.AppImage dist/*.deb dist/latest-linux.yml || true
 
+      # Downloadable from the Actions page, so the Linux build can be tried on
+      # a real machine without cutting a release (which would push an update
+      # to every Windows venue machine for nothing).
+      - name: Upload build for testing
+        uses: actions/upload-artifact@v4
+        with:
+          name: er-timer-linux
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+          if-no-files-found: error
+
       - name: App log (always)
         if: always()
         run: cat /tmp/app.log || true
