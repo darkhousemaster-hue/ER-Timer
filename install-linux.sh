@@ -85,13 +85,17 @@ chmod +x "$APP_PATH"          # the executable bit is lost in transit
 
 # An AppImage mounts itself with libfuse2, which Ubuntu 22.04 and newer stopped
 # shipping. Installing it needs a password that locked-down game-master machines
-# may not have, so fall back to the AppImage runtime's own
-# --appimage-extract-and-run, which unpacks to a temp directory instead. Costs
-# about a second at startup, and unlike unpacking the AppImage ourselves it
-# still sets APPIMAGE, which the auto-updater needs to work at all.
-RUN_MODE=""
+# may not have, so fall back to the AppImage runtime unpacking itself into a
+# temp directory. Costs about a second at startup, and unlike unpacking the
+# AppImage ourselves it still sets APPIMAGE, which the updater needs.
+#
+# This is the environment variable rather than the --appimage-extract-and-run
+# flag on purpose. After installing an update, electron-updater relaunches the
+# AppImage with no arguments at all, so a flag would be lost and the new copy
+# would die on missing FUSE. The variable is inherited by that relaunch.
+EXTRACT_LINE=""
 if ! ldconfig -p 2>/dev/null | grep -q 'libfuse\.so\.2'; then
-  RUN_MODE="--appimage-extract-and-run"
+  EXTRACT_LINE="export APPIMAGE_EXTRACT_AND_RUN=1"
 fi
 
 # Installers before 3.0.0 unpacked into ~/.local/lib/er-timer. Nothing runs
@@ -113,7 +117,12 @@ cat > "$LAUNCHER" <<LAUNCH
 # which needs a password these machines may not have, and Ubuntu 24.04 blocks
 # the unprivileged user-namespace sandbox Chromium would otherwise fall back
 # to, so Electron aborts on startup. The app only ever loads local files.
-exec "$APP_PATH" $RUN_MODE --ozone-platform=x11 --no-sandbox "\$@"
+#
+# Both flags are also baked into the AppImage itself from 3.0.3 on, so that an
+# update's silent relaunch gets them too. Passing them twice is harmless, and
+# keeps this launcher working with an older AppImage.
+$EXTRACT_LINE
+exec "$APP_PATH" --ozone-platform=x11 --no-sandbox "\$@"
 LAUNCH
 chmod +x "$LAUNCHER"
 

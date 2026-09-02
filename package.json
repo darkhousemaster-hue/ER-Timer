@@ -1,6 +1,6 @@
 {
   "name": "er-timer",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "Escape Room dual-room timer",
   "main": "src/main.js",
   "scripts": {
@@ -42,7 +42,8 @@
       "synopsis": "Escape Room dual-room timer",
       "maintainer": "darkhousemaster-hue <darkhousemaster-hue@users.noreply.github.com>",
       "executableArgs": [
-        "--ozone-platform=x11"
+        "--ozone-platform=x11",
+        "--no-sandbox"
       ]
     },
     "appImage": {
