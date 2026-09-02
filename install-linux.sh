@@ -4,7 +4,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/darkhousemaster-hue/ER-Timer/main/install-linux.sh | bash
 #
 # No curl? Use wget instead:
-#   wget -qO- https://raw.githubusercontent.com/darkhousemaster-hue/ER-Timer/main/install-linux.sh | bash
+#   wget -q -O - https://raw.githubusercontent.com/darkhousemaster-hue/ER-Timer/main/install-linux.sh | bash
 #
 # Downloads the latest release, puts it in your home folder, sets the
 # permissions and adds it to the applications menu. No sudo needed:
@@ -43,12 +43,12 @@ fi
 
 # fetch URL -> stdout
 fetch() {
-  if [ "$DL" = curl ]; then curl -fsSL "$1"; else wget -qO- "$1"; fi
+  if [ "$DL" = curl ]; then curl -fsSL "$1"; else wget -q -O - "$1"; fi
 }
 
 # fetch_to URL FILE — quiet, for small files
 fetch_to() {
-  if [ "$DL" = curl ]; then curl -fsSL -o "$2" "$1"; else wget -qO "$2" "$1"; fi
+  if [ "$DL" = curl ]; then curl -fsSL -o "$2" "$1"; else wget -q -O "$2" "$1"; fi
 }
 
 # download URL FILE — with a progress bar, for the big one
