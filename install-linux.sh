@@ -118,9 +118,10 @@ cat > "$LAUNCHER" <<LAUNCH
 # the unprivileged user-namespace sandbox Chromium would otherwise fall back
 # to, so Electron aborts on startup. The app only ever loads local files.
 #
-# Both flags are also baked into the AppImage itself from 3.0.3 on, so that an
-# update's silent relaunch gets them too. Passing them twice is harmless, and
-# keeps this launcher working with an older AppImage.
+# The same thing is set as an environment variable as well as a flag, because
+# after installing an update electron-updater relaunches the AppImage with no
+# arguments at all. Flags are lost there; the environment is inherited.
+export ELECTRON_DISABLE_SANDBOX=1
 $EXTRACT_LINE
 exec "$APP_PATH" --ozone-platform=x11 --no-sandbox "\$@"
 LAUNCH
