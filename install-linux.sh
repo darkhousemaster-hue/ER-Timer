@@ -3,6 +3,9 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/darkhousemaster-hue/ER-Timer/main/install-linux.sh | bash
 #
+# No curl? Use wget instead:
+#   wget -qO- https://raw.githubusercontent.com/darkhousemaster-hue/ER-Timer/main/install-linux.sh | bash
+#
 # Downloads the latest release, puts it in your home folder, sets the
 # permissions and adds it to the applications menu. No sudo needed:
 # nothing is written outside your own home directory.
@@ -18,9 +21,49 @@ APP_PATH="$BIN_DIR/ER-Timer.AppImage"
 
 say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 
+# Some distributions ship curl, some ship wget, some ship both. Use whichever
+# is there rather than making the user install a download tool first.
+WGET_PROGRESS=""
+if command -v curl >/dev/null 2>&1; then
+  DL=curl
+elif command -v wget >/dev/null 2>&1; then
+  DL=wget
+  if wget --help 2>&1 | grep -q -- '--show-progress'; then
+    WGET_PROGRESS="--show-progress"
+  fi
+else
+  echo "This installer needs either curl or wget, and neither is installed." >&2
+  echo "Install one of them first, then run the installer again:" >&2
+  echo >&2
+  echo "    sudo apt install -y curl        # Debian, Ubuntu, Mint" >&2
+  echo "    sudo dnf install -y curl        # Fedora" >&2
+  echo "    sudo pacman -S curl             # Arch, Manjaro" >&2
+  exit 1
+fi
+
+# fetch URL -> stdout
+fetch() {
+  if [ "$DL" = curl ]; then curl -fsSL "$1"; else wget -qO- "$1"; fi
+}
+
+# fetch_to URL FILE — quiet, for small files
+fetch_to() {
+  if [ "$DL" = curl ]; then curl -fsSL -o "$2" "$1"; else wget -qO "$2" "$1"; fi
+}
+
+# download URL FILE — with a progress bar, for the big one
+download() {
+  if [ "$DL" = curl ]; then
+    curl -fL --progress-bar -o "$2" "$1"
+  else
+    # shellcheck disable=SC2086
+    wget -q $WGET_PROGRESS -O "$2" "$1"
+  fi
+}
+
 say "Looking up the latest ER Timer release…"
 API="https://api.github.com/repos/$REPO/releases/latest"
-URL=$(curl -fsSL "$API" \
+URL=$(fetch "$API" \
   | grep -o '"browser_download_url": *"[^"]*\.AppImage"' \
   | head -1 | cut -d'"' -f4 || true)
 
@@ -31,16 +74,16 @@ if [ -z "$URL" ]; then
   exit 1
 fi
 
-VERSION=$(basename "$URL" | sed -E 's/.*[ -]([0-9]+\.[0-9]+\.[0-9]+)\.AppImage/\1/')
+VERSION=$(basename "$URL" | sed -E 's/.*[ .-]([0-9]+\.[0-9]+\.[0-9]+)\.AppImage/\1/')
 say "Downloading ER Timer $VERSION…"
 mkdir -p "$BIN_DIR" "$ICON_DIR" "$DESKTOP_DIR"
-curl -fL --progress-bar -o "$APP_PATH.part" "$URL"
+download "$URL" "$APP_PATH.part"
 mv "$APP_PATH.part" "$APP_PATH"
 chmod +x "$APP_PATH"          # the executable bit is lost in transit
 
 say "Adding it to your applications menu…"
-curl -fsSL -o "$ICON_DIR/er-timer.png" \
-  "https://raw.githubusercontent.com/$REPO/main/assets/icons/linux/512x512.png" || true
+fetch_to "https://raw.githubusercontent.com/$REPO/main/assets/icons/linux/512x512.png" \
+  "$ICON_DIR/er-timer.png" || true
 
 cat > "$DESKTOP_DIR/er-timer.desktop" <<DESKTOP
 [Desktop Entry]
