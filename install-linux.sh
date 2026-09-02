@@ -123,7 +123,11 @@ cat > "$LAUNCHER" <<LAUNCH
 # find the binary next to itself. Harmless when the AppImage is used whole.
 APPDIR="$LIB_DIR"
 export APPDIR
-exec "$LAUNCH_TARGET" --ozone-platform=x11 "\$@"
+# chrome-sandbox has to be root-owned with mode 4755, which needs a password
+# these machines may not have, and Ubuntu 24.04 blocks the unprivileged
+# user-namespace sandbox Chromium would otherwise fall back to, so Electron
+# aborts on startup. The app only ever loads local files.
+exec "$LAUNCH_TARGET" --ozone-platform=x11 --no-sandbox "\$@"
 LAUNCH
 chmod +x "$LAUNCHER"
 
