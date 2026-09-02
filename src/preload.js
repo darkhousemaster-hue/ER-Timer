@@ -10,7 +10,8 @@ contextBridge.exposeInMainWorld('api', {
       'push-styles-to-room', 'check-for-updates',
       'timer-start', 'timer-pause', 'timer-reset',
       'restore-control', 'stop-sound', 'audio-error',
-      'open-annotate', 'annotate-send', 'reset-window-position'
+      'open-annotate', 'annotate-send', 'reset-window-position',
+      'hint-timed-out'
     ]
     if (allowed.includes(channel)) ipcRenderer.send(channel, data)
   },
@@ -32,7 +33,7 @@ contextBridge.exposeInMainWorld('api', {
       'save-layout', 'layout-mode-done', 'updater-status',
       'timer-tick-control', 'timer-gameover',
       'stop-sound', 'audio-error', 'displays-changed',
-      'annotate-init', 'annotate-result'
+      'annotate-init', 'annotate-result', 'hint-timed-out'
     ]
     if (allowed.includes(channel))
       ipcRenderer.on(channel, (event, data) => cb(data))

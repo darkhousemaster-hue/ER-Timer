@@ -835,6 +835,23 @@ function updateClearButton(roomIndex) {
   btn.disabled = !r.currentTextHint && !r.currentImageHint
 }
 
+// A hint can also leave the player screen on its own, through the hint
+// timeout. The timer window says so when it happens, otherwise this window
+// still believes something is showing and leaves Clear screen lit. The typed
+// text stays in its box on purpose, so the GM can send it again.
+window.api.on('hint-timed-out', ({ roomIndex, kind }) => {
+  const r = state.rooms[roomIndex]
+  if (!r) return
+  if (kind === 'image') {
+    clearRoomHighlight(roomIndex)      // reads currentImageHint, so run it first
+    r.currentImageHint = ''
+  } else {
+    r.currentTextHint = ''
+  }
+  updateClearButton(roomIndex)
+  scheduleSave()
+})
+
 // ════════════════════════════════════════════════════════
 // PICTURE HINTS — Phase > Riddle > Images
 // ════════════════════════════════════════════════════════

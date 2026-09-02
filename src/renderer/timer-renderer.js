@@ -465,6 +465,10 @@ window.api.on('hint-text', data => {
       hintTextTimeout = setTimeout(() => {
         els.hintText.style.display = 'none'
         els.hintText.textContent   = ''
+        // Tell the control window, or its Clear screen button stays lit for
+        // a hint that is no longer on screen. Mirrors stay quiet so one room
+        // only ever reports once.
+        if (!isMirror) window.api.send('hint-timed-out', { roomIndex: myRoomIndex, kind: 'text' })
       }, hintTimeoutSecs * 1000)
     }
   } else {
@@ -484,6 +488,7 @@ window.api.on('hint-image', data => {
       hintImageTimeout = setTimeout(() => {
         els.hintImage.style.display = 'none'
         els.hintImg.src             = ''
+        if (!isMirror) window.api.send('hint-timed-out', { roomIndex: myRoomIndex, kind: 'image' })
       }, hintTimeoutSecs * 1000)
     }
   } else {

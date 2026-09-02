@@ -522,6 +522,9 @@ ipcMain.on('play-sound', (e, data) => sendToRoom(data.roomIndex, 'play-sound', d
 ipcMain.on('stop-sound', (e, data) => sendToRoom(data.roomIndex, 'stop-sound', data))
 // Timer window failed to route a sound to its selected device — warn the GM
 ipcMain.on('audio-error', (e, data) => controlWin?.webContents.send('audio-error', data))
+// A hint auto-hid itself after the timeout — the control window has to know,
+// or it still thinks that room has something on screen.
+ipcMain.on('hint-timed-out', (e, data) => controlWin?.webContents.send('hint-timed-out', data))
 ipcMain.on('hint-image', (e, data) => sendToRoom(data.roomIndex, 'hint-image', data))
 ipcMain.on('hint-clear', (e, data) => sendToRoom(data.roomIndex, 'hint-clear', data))
 ipcMain.on('apply-style', (e, data) => sendToAll('apply-style', data))
