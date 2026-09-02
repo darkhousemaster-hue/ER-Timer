@@ -18,6 +18,8 @@ BIN_DIR="$HOME/.local/bin"
 ICON_DIR="$HOME/.local/share/icons/hicolor/512x512/apps"
 DESKTOP_DIR="$HOME/.local/share/applications"
 APP_PATH="$BIN_DIR/ER-Timer.AppImage"
+LIB_DIR="$HOME/.local/lib/er-timer"
+LAUNCHER="$BIN_DIR/er-timer"
 
 say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 
@@ -81,16 +83,52 @@ download "$URL" "$APP_PATH.part"
 mv "$APP_PATH.part" "$APP_PATH"
 chmod +x "$APP_PATH"          # the executable bit is lost in transit
 
+# AppImages normally need libfuse2, which Ubuntu 22.04 and newer stopped
+# shipping. Installing it needs a password, and locked-down game-master
+# machines often have no sudo at all — so when it is missing we unpack the
+# AppImage once instead. --appimage-extract is built into the AppImage
+# runtime itself and does not use FUSE.
+LAUNCH_TARGET="$APP_PATH"
+if ! ldconfig -p 2>/dev/null | grep -q 'libfuse\.so\.2'; then
+  say "Unpacking (this system has no libfuse2, so no password is needed)…"
+  TMP=$(mktemp -d)
+  if ( cd "$TMP" && "$APP_PATH" --appimage-extract >/dev/null 2>&1 ) \
+     && [ -x "$TMP/squashfs-root/AppRun" ]; then
+    rm -rf "$LIB_DIR"
+    mkdir -p "$(dirname "$LIB_DIR")"
+    mv "$TMP/squashfs-root" "$LIB_DIR"
+    LAUNCH_TARGET="$LIB_DIR/AppRun"
+    rm -f "$APP_PATH"          # the unpacked copy is what runs from now on
+  else
+    rm -rf "$TMP"
+    echo >&2
+    echo "Could not unpack the AppImage, and libfuse2 is missing." >&2
+    echo "Ask whoever administers this machine to run:" >&2
+    echo >&2
+    echo "    sudo apt install -y libfuse2" >&2
+    echo >&2
+    exit 1
+  fi
+  rm -rf "$TMP"
+fi
+
 say "Adding it to your applications menu…"
 fetch_to "https://raw.githubusercontent.com/$REPO/main/assets/icons/linux/512x512.png" \
   "$ICON_DIR/er-timer.png" || true
+
+# One stable command to start it, whichever of the two layouts is in use.
+cat > "$LAUNCHER" <<LAUNCH
+#!/bin/sh
+exec "$LAUNCH_TARGET" --ozone-platform=x11 "\$@"
+LAUNCH
+chmod +x "$LAUNCHER"
 
 cat > "$DESKTOP_DIR/er-timer.desktop" <<DESKTOP
 [Desktop Entry]
 Type=Application
 Name=ER Timer
 Comment=Escape Room dual-room timer
-Exec="$APP_PATH" --ozone-platform=x11
+Exec="$LAUNCHER"
 Icon=er-timer
 Terminal=false
 Categories=Utility;
@@ -100,19 +138,8 @@ chmod +x "$DESKTOP_DIR/er-timer.desktop"
 command -v update-desktop-database >/dev/null && \
   update-desktop-database "$DESKTOP_DIR" >/dev/null 2>&1 || true
 
-# AppImages need libfuse2, which Ubuntu 22.04 and newer no longer ship.
-if ! ldconfig -p 2>/dev/null | grep -q 'libfuse\.so\.2'; then
-  say "One more thing"
-  echo "AppImages need the libfuse2 library, which your distribution does not"
-  echo "install by default. This is the only step that needs a password:"
-  echo
-  echo "    sudo apt install -y libfuse2"
-  echo
-  echo "Without it the app will not start."
-fi
-
 say "Done — ER Timer $VERSION is installed"
 echo "Start it from your applications menu, or run:"
-echo "    $APP_PATH"
+echo "    $LAUNCHER"
 echo
 echo "Re-run this installer any time to update."
