@@ -119,6 +119,10 @@ fetch_to "https://raw.githubusercontent.com/$REPO/main/assets/icons/linux/512x51
 # One stable command to start it, whichever of the two layouts is in use.
 cat > "$LAUNCHER" <<LAUNCH
 #!/bin/sh
+# An unpacked AppImage has no runtime to set APPDIR, and AppRun needs it to
+# find the binary next to itself. Harmless when the AppImage is used whole.
+APPDIR="$LIB_DIR"
+export APPDIR
 exec "$LAUNCH_TARGET" --ozone-platform=x11 "\$@"
 LAUNCH
 chmod +x "$LAUNCHER"
