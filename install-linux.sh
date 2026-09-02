@@ -83,51 +83,37 @@ download "$URL" "$APP_PATH.part"
 mv "$APP_PATH.part" "$APP_PATH"
 chmod +x "$APP_PATH"          # the executable bit is lost in transit
 
-# AppImages normally need libfuse2, which Ubuntu 22.04 and newer stopped
-# shipping. Installing it needs a password, and locked-down game-master
-# machines often have no sudo at all — so when it is missing we unpack the
-# AppImage once instead. --appimage-extract is built into the AppImage
-# runtime itself and does not use FUSE.
-LAUNCH_TARGET="$APP_PATH"
+# An AppImage mounts itself with libfuse2, which Ubuntu 22.04 and newer stopped
+# shipping. Installing it needs a password that locked-down game-master machines
+# may not have, so fall back to the AppImage runtime's own
+# --appimage-extract-and-run, which unpacks to a temp directory instead. Costs
+# about a second at startup, and unlike unpacking the AppImage ourselves it
+# still sets APPIMAGE, which the auto-updater needs to work at all.
+RUN_MODE=""
 if ! ldconfig -p 2>/dev/null | grep -q 'libfuse\.so\.2'; then
-  say "Unpacking (this system has no libfuse2, so no password is needed)…"
-  TMP=$(mktemp -d)
-  if ( cd "$TMP" && "$APP_PATH" --appimage-extract >/dev/null 2>&1 ) \
-     && [ -x "$TMP/squashfs-root/AppRun" ]; then
-    rm -rf "$LIB_DIR"
-    mkdir -p "$(dirname "$LIB_DIR")"
-    mv "$TMP/squashfs-root" "$LIB_DIR"
-    LAUNCH_TARGET="$LIB_DIR/AppRun"
-    rm -f "$APP_PATH"          # the unpacked copy is what runs from now on
-  else
-    rm -rf "$TMP"
-    echo >&2
-    echo "Could not unpack the AppImage, and libfuse2 is missing." >&2
-    echo "Ask whoever administers this machine to run:" >&2
-    echo >&2
-    echo "    sudo apt install -y libfuse2" >&2
-    echo >&2
-    exit 1
-  fi
-  rm -rf "$TMP"
+  RUN_MODE="--appimage-extract-and-run"
 fi
+
+# Installers before 3.0.0 unpacked into ~/.local/lib/er-timer. Nothing runs
+# from there any more, and it is ~300 MB.
+rm -rf "$LIB_DIR"
 
 say "Adding it to your applications menu…"
 fetch_to "https://raw.githubusercontent.com/$REPO/main/assets/icons/linux/512x512.png" \
   "$ICON_DIR/er-timer.png" || true
 
-# One stable command to start it, whichever of the two layouts is in use.
+# One stable command to start it, whichever way it turns out to run.
 cat > "$LAUNCHER" <<LAUNCH
 #!/bin/sh
-# An unpacked AppImage has no runtime to set APPDIR, and AppRun needs it to
-# find the binary next to itself. Harmless when the AppImage is used whole.
-APPDIR="$LIB_DIR"
-export APPDIR
-# chrome-sandbox has to be root-owned with mode 4755, which needs a password
-# these machines may not have, and Ubuntu 24.04 blocks the unprivileged
-# user-namespace sandbox Chromium would otherwise fall back to, so Electron
-# aborts on startup. The app only ever loads local files.
-exec "$LAUNCH_TARGET" --ozone-platform=x11 --no-sandbox "\$@"
+# --ozone-platform=x11 routes through XWayland on Wayland desktops. Native
+# Wayland forbids an app from positioning its own windows, which would break
+# always-on-top, the minimise button and putting the timer on the right screen.
+#
+# --no-sandbox because chrome-sandbox has to be root-owned with mode 4755,
+# which needs a password these machines may not have, and Ubuntu 24.04 blocks
+# the unprivileged user-namespace sandbox Chromium would otherwise fall back
+# to, so Electron aborts on startup. The app only ever loads local files.
+exec "$APP_PATH" $RUN_MODE --ozone-platform=x11 --no-sandbox "\$@"
 LAUNCH
 chmod +x "$LAUNCHER"
 
@@ -137,17 +123,31 @@ Type=Application
 Name=ER Timer
 Comment=Escape Room dual-room timer
 Exec="$LAUNCHER"
-Icon=er-timer
+Icon=$ICON_DIR/er-timer.png
 Terminal=false
 Categories=Utility;
-StartupWMClass=ER Timer
+StartupWMClass=er-timer
 DESKTOP
 chmod +x "$DESKTOP_DIR/er-timer.desktop"
 command -v update-desktop-database >/dev/null && \
   update-desktop-database "$DESKTOP_DIR" >/dev/null 2>&1 || true
+command -v gtk-update-icon-cache >/dev/null && \
+  gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor" >/dev/null 2>&1 || true
+
+# A shortcut on the desktop itself. xdg-user-dir knows the localised folder
+# name (Schreibtisch, Bureau, ...); fall back to English if it is missing.
+DESKTOP_FOLDER=$(xdg-user-dir DESKTOP 2>/dev/null || true)
+[ -n "$DESKTOP_FOLDER" ] || DESKTOP_FOLDER="$HOME/Desktop"
+if [ -d "$DESKTOP_FOLDER" ]; then
+  cp "$DESKTOP_DIR/er-timer.desktop" "$DESKTOP_FOLDER/er-timer.desktop"
+  chmod +x "$DESKTOP_FOLDER/er-timer.desktop"
+  # GNOME will not run a desktop file it has not been told to trust.
+  command -v gio >/dev/null && \
+    gio set "$DESKTOP_FOLDER/er-timer.desktop" metadata::trusted true >/dev/null 2>&1 || true
+fi
 
 say "Done — ER Timer $VERSION is installed"
-echo "Start it from your applications menu, or run:"
+echo "Start it from the applications menu or the desktop shortcut, or run:"
 echo "    $LAUNCHER"
 echo
 echo "Re-run this installer any time to update."
