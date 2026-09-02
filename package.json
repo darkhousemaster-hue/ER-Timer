@@ -1,6 +1,6 @@
 {
   "name": "er-timer",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Escape Room dual-room timer",
   "main": "src/main.js",
   "scripts": {
@@ -44,6 +44,9 @@
       "executableArgs": [
         "--ozone-platform=x11"
       ]
+    },
+    "appImage": {
+      "artifactName": "ER-Timer-${version}.${ext}"
     },
     "files": [
       "src/**/*",
